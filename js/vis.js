@@ -197,6 +197,12 @@ var UI = (function() {
 			notes.on("keydown", (e) => {
 				if (e.which == 13) notes.node().blur();
 			});
+
+			// Create delete track option for the particular box
+			// Create delete track button
+			var deleteButton = tip.select("#delete_track");
+			deleteButton.html('<button>Delete track</button>')
+				.on("click", () => delete_track(box.track.id));
 		}
 
 		// Called when user unhovers to schedule unselection in 250ms
@@ -315,6 +321,37 @@ var UI = (function() {
 	{
 		box.track.notes = document.getElementById('notes').value;
 		box.user_labeled = true;
+	}
+
+	/* -----------------------------------------
+	 * Track Modifications
+	 * ---------------------------------------- */
+
+	/* -----------------------------------------
+	 * 1) delete_track() => deletes the track 
+		information for a track with identifier 
+		as 'track_id' for the particular box 
+		selection across time
+	 * ---------------------------------------- */
+	function delete_track(track_id) {
+
+		// find the track
+		if(tracks.has(track_id)){
+			tracks.delete(track_id);
+		}	
+	
+		// clear the selected track
+		Track.selectedTrack = null;
+
+		// remove the box associated with the track
+		boxes = boxes.filter(box => box.track_id !== track_id);
+
+		// Update boxes_by_day too
+		for (let [date, boxesArray] of boxes_by_day.entries()) {
+			boxes_by_day.set(date, boxesArray.filter(box => box.track_id !== track_id));
+		}
+		// re-render frame
+		render_frame();
 	}
 	
 
