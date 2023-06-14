@@ -15,5 +15,12 @@
         "pattern": "data/%s/scan_list.txt",
         "fields": ["dataset"],
         "filter": ["%s%s", ["station", "year"]]
+    },
+    "filtering" : {
+        "detections_min" : 1,
+        "high_quality_detections_min": 1,
+        "score_min" : 0.0,
+        "avg_score_min" : 0.0
     }
+
 }
