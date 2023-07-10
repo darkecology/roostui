@@ -11,7 +11,7 @@ import babel from '@rollup/plugin-babel';
 
 const PRODUCTION = process.env['BUILD'] === 'production';
 
-export default {
+export default [{
   input: join('js', 'vis.js'),
   output: {
     file: join('dist', PRODUCTION ? 'demo.min.js' : 'demo.js'),
@@ -65,4 +65,62 @@ export default {
     }),
     globals()
   ].filter(Boolean)
-};
+},
+
+{
+
+  input: join('js', 'index.js'),
+  output: {
+    file: join('dist', PRODUCTION ? 'demo2.min.js' : 'demo2.js'),
+    format: 'iife',
+    sourcemap: true,
+    strict: true,
+  },
+  plugins: [
+    sourcemaps(),
+    PRODUCTION && uglify(),
+	babel({
+      exclude: 'node_modules/**',
+	    babelHelpers: 'runtime'
+    }),
+    resolve({
+      // use "module" field for ES6 module if possible
+      module: true, // Default: true
+
+      // use "jsnext:main" if possible
+      // – see https://github.com/rollup/rollup/wiki/jsnext:main
+      jsnext: true,  // Default: false
+
+      // use "main" field or index.js, even if it's not an ES6 module
+      // (needs to be converted from CommonJS to ES6
+      // – see https://github.com/rollup/rollup-plugin-commonjs
+      main: true,  // Default: true
+
+      // some package.json files have a `browser` field which
+      // specifies alternative files to load for people bundling
+      // for the browser. If that's you, use this option, otherwise
+      // pkg.browser will be ignored
+      browser: true  // Default: false
+    }),
+    commonjs({
+      namedExports: {
+        'react-dom': ['render'],
+        'react': ['Component', 'createElement']
+      }
+    }),
+	
+    builtins(),
+    replace({
+      // Production for production builds.
+      'process.env.NODE_ENV': JSON.stringify(PRODUCTION ? 'production' : 'development' )
+    }),
+    globals()
+  ].filter(Boolean)
+
+
+
+
+}
+
+
+];
