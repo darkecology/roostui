@@ -1,60 +1,26 @@
 import * as React from 'react'
+import { useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import * as d3 from 'd3';
 
-function ViewModule() {
+/* export interface ImageTrackProps {
+    elementSize: Size; // size of displayed image
+    basepath: string; // parent directory for all images in this series
+    imageSeries: string[]; // filenames of all images
+    imageLength: number; // number of pixels in source image
+    allTracks: TrackInfo[][]; // information for each track
+  }
+ */
 
-    function render_dataset() {
-        // If work needs saving, check if user wants to proceed
-        if (window.onbeforeunload &&
-            !window.confirm("Change dataset? You made changes but did not export data.")) {
-            return;
-        }
-        window.onbeforeunload = null;
+function ViewModule(basePath, imgSeries, allTracks, imgSize) {
 
-        let dataset = nav.dataset;
-        if (dataset) {
-
-            d3.select('#datasets').node().value = dataset;
-
-            function handle_config(_config) {
-                dataset_config = _config;
-                if ("filtering" in dataset_config) {
-                    Object.assign(filters, dataset_config["filtering"]);
-                }
-                else {
-                    Object.assign(filters, default_filters);
-                }
-                render_filters();
-            }
-
-            function handle_batches(batch_list) {
-                batch_list = batch_list.trim().split("\n");
-                var batches = d3.select('#batches');
-                var options = batches.selectAll("option")
-                    .data(batch_list)
-                    .join("option")
-                    .text(d => d);
-                batches.on("change", change_batch);
-
-                // If the batch nav is not set already, used the selected value
-                // from the dropdown list
-                if (!nav.batch) {
-                    nav.batch = batches.node().value;
-                }
-            }
-
-            var batchFile = sprintf("data/%s/batches.txt", dataset);
-            var dataset_config_file = sprintf("data/%s/config.json", dataset);
-
-            Promise.all([
-                d3.text(batchFile).then(handle_batches),
-                d3.json(dataset_config_file).then(handle_config)
-            ]).then(render_batch);
-        }
-    }
-
+    useEffect(() => {
+        console.log(basePath)
+        console.log(imgSeries)
+        console.log(allTracks)
+        console.log(imgSize)
+    }, [])
 
     return (
         <div>
@@ -68,4 +34,9 @@ function ViewModule() {
 
 const domNode = document.getElementById('viewer');
 const root = createRoot(domNode);
-root.render(<ViewModule />);
+root.render(<ViewModule
+    basePath={document.getElementById("viewer").getAttribute("basePath")}
+    imgSeries={document.getElementById("viewer").getAttribute("imgSeries")}
+    allTracks={document.getElementById("viewer").getAttribute("allTracks")}
+    imgSize={document.getElementById("viewer").getAttribute("imgSize")}
+/>);
