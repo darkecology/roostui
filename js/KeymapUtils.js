@@ -1,9 +1,17 @@
-import { update_nav_then_render_frame } from './index.js';
+import { update_nav_then_render_frame } from './Viewer.js';
 import { update_nav_then_render_day } from './vis.js';
 import * as d3 from 'd3';
 import Track from './Track.js'
 
-export function next_box() {
+/**
+ * This file keeps track of two keymaps and their respective functions. 
+ *  up/down for days
+ *  left/right for frames
+ *  hover on box or use tab/shift-tab to select for labeling 
+ */
+
+
+function next_box() {
 
     if (active_tracks.length == 0)
         return;
@@ -28,12 +36,12 @@ export function next_box() {
     }
 }
 
-export function unselect_box() {
+function unselect_box() {
     if (Track.selectedTrack)
         Track.selectedTrack.unselect();
 }
 
-export function prev_box() {
+function prev_box() {
 
     if (active_tracks.length == 0)
         return;
@@ -58,38 +66,38 @@ export function prev_box() {
     }
 }
 
-export function prev_frame() {
+function prev_frame() {
     if (frames.prev()) update_nav_then_render_frame();
 }
 
-export function next_frame() {
+function next_frame() {
     if (frames.next()) update_nav_then_render_frame();
 }
 
-export function prev_frame_with_roost() {
+function prev_frame_with_roost() {
     if (frames.prevTrue()) update_nav_then_render_frame();
 }
 
-export function next_frame_with_roost() {
+function next_frame_with_roost() {
     if (frames.nextTrue()) update_nav_then_render_frame();
 }
 
-export function prev_day() {
+function prev_day() {
     if (days.prev()) update_nav_then_render_day();
 }
 
-export function prev_day_with_roost() {
+function prev_day_with_roost() {
     if (days.prevTrue()) update_nav_then_render_day();
 }
 
-export function next_day() {
+function next_day() {
     if (days.next()) update_nav_then_render_day();
 }
 
-export function next_day_with_roost() {
+function next_day_with_roost() {
     if (days.nextTrue()) update_nav_then_render_day();
 }
-export function enable_shortcuts() {
+function enable_shortcuts() {
     for (let i = 0; i < labels.length; i++) {
         keymap['48' + parseInt(i + 1)] =
             ((label) => () => this.setLabel(label))(labels[i]);

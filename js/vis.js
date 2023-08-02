@@ -6,11 +6,15 @@ import {
 	expand_pattern, url2obj
 } from './utils.js';
 import { BoolList } from './BoolList.js';
-import ViewModule, { save_notes } from './index.js';
+import ViewModule, { save_notes } from './Viewer.js';
 import Track from './Track.js';
 import Box from './Box.js'
 import handle_keydown from './KeymapUtils.js';
 
+
+/**
+ * Global variables for all functions 
+ */
 
 window.days = new BoolList([], []);					// BoolList of dates
 window.frames = new BoolList([], []);						// BoolList of frames for current day
@@ -53,10 +57,7 @@ export function update_nav_then_render_day() {
 
 var UI = (function () {
 
-
-
 	var UI = {};
-
 
 	var filters = {};			// Current filters
 
@@ -129,13 +130,6 @@ var UI = (function () {
 	}
 
 
-	/* -----------------------------------------
-	 * Page navigation and rendering
-	 * ---------------------------------------- */
-
-	/* -----------------------------------------
-	 * 1. Dataset
-	 * ---------------------------------------- */
 
 	function change_dataset() {
 
@@ -150,6 +144,7 @@ var UI = (function () {
 		render_dataset();
 	}
 
+	//Renders the current dataset based on user input (current dataset = dataset )
 	function render_dataset() {
 		// If work needs saving, check if user wants to proceed
 		if (window.onbeforeunload &&
@@ -200,11 +195,7 @@ var UI = (function () {
 		}
 	}
 
-
-	/* -----------------------------------------
-	 * 2. Batch
-	 * ---------------------------------------- */
-
+	//change the current batch and update nav based on input
 	function change_batch() {
 		let batches = d3.select('#batches').node();
 		batches.blur();
@@ -216,6 +207,7 @@ var UI = (function () {
 		render_batch();
 	}
 
+	//Renders the current batch based on user input (current batch = batch )
 	function render_batch() {
 
 		if (window.onbeforeunload &&
@@ -405,10 +397,7 @@ var UI = (function () {
 	}
 
 
-	/* -----------------------------------------
-	 * 3. Day
-	 * ---------------------------------------- */
-
+	//Change the day 
 	function change_day() {
 		let n = d3.select("#dateSelect").node();
 		n.blur();
@@ -418,14 +407,7 @@ var UI = (function () {
 	}
 
 
-
-
-
-
-
-	/* -----------------------------------------
-	 * 5. Export
-	 * ---------------------------------------- */
+	//export data 
 
 	function export_sequences() {
 

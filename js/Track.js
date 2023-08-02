@@ -1,6 +1,10 @@
 import * as d3 from 'd3';
-import { render_frame } from './index.js';
+import { update_nav_then_render_frame } from './Viewer.js';
 import sprintf from 'sprintf';
+
+/**
+ * Creates and handles tracks. 
+ */
 
 export default class Track {
 
@@ -14,10 +18,12 @@ export default class Track {
         this.nodes.set(svg, n);
     }
 
+    //sets current track as the selected track 
     setSelected() {
         Track.selectedTrack = this;
     }
 
+    //opens the current track in google maps using the longitude and latitude given by the box
     mapper(box) {
         var ll = box.lat + "," + box.lon;
         var url = "http://maps.google.com/?q=" + ll + "&ll=" + ll + "&z=8";
@@ -25,11 +31,13 @@ export default class Track {
         window.open(url);
     }
 
+    //saves the notes input by the user 
     save_notes(box) {
 		box.track.notes = document.getElementById('notes').value;
 		box.user_labeled = true;
 	}
 
+    //selects the track and opens the tooltip 
     select(node) {
 
         // If this track is already selected, do nothing
@@ -120,6 +128,7 @@ export default class Track {
         }
     }
 
+    //unselect the track 
     unselect = e => {
 
         // The track may have already been unselected. If so, return
@@ -140,8 +149,9 @@ export default class Track {
 
     }
 
+    //sets track label based on user input 
     setLabel(label) {
-        let i = labels.indexOf(label);
+        let i = window.labels.indexOf(label);
         d3.select("#label" + i).node().checked = true;
         this.label = label;
         this.user_labeled = true;
@@ -159,10 +169,11 @@ export default class Track {
         };
     }
 
+    //deletes the track 
     delete_track(track_id) {
 
         // find the track
-        if (tracks.has(track_id)) {
+        if (window.tracks.has(track_id)) {
             window.tracks.delete(track_id);
         }
 
@@ -177,11 +188,7 @@ export default class Track {
             window.boxes_by_day.set(date, boxesArray.filter(box => box.track_id !== track_id));
         }
         // re-render frame
-        render_frame();
+        update_nav_then_render_frame();
     }
-
-    
-
-    
 
 }

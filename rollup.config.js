@@ -69,7 +69,7 @@ export default [{
 
 {
 
-  input: join('js', 'index.js'),
+  input: join('js', 'Viewer.js'),
   output: {
     file: join('dist', PRODUCTION ? 'demo2.min.js' : 'demo2.js'),
     format: 'iife',

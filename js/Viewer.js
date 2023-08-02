@@ -10,6 +10,10 @@ import Track from './Track.js';
 import * as d3 from 'd3';
 
 
+/**
+ * Contains React component to view and interact with svgs and tracks. 
+ */
+
 export function save_notes(box) {
     box.track.notes = document.getElementById('notes').value;
     box.user_labeled = true;
@@ -23,7 +27,7 @@ function isObjEmpty(obj) {
     return Object.keys(obj).length === 0;
 }
 
-
+//Renders the current frame based on user input  (current frame = dataset, batch, day, time set )
 export function render_frame() {
     var days = window.days;
 
@@ -46,7 +50,7 @@ export function render_frame() {
 
     let boxes_for_day = boxes_by_day.has(day) ? boxes_by_day.get(day) : [];
     let boxes_for_scan = boxes_for_day.filter(d => d.filename.trim() == scan.filename.trim());
-    active_tracks = boxes_for_scan.map(b => tracks.get(b.track_id));
+    active_tracks = boxes_for_scan.map(b => window.tracks.get(b.track_id));
 
     let track_ids = boxes_for_day.map((d) => d.track_id);
     track_ids = unique(track_ids);
@@ -106,6 +110,7 @@ export function render_frame() {
     //window.location.hash = obj2url(nav);
 }
 
+//Renders the current day based on user input (current day = dataset, batch, day set )
 function render_day() {
     var days = window.days;
     var scans = window.scans;
