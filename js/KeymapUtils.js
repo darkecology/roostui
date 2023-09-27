@@ -91,7 +91,7 @@ function prev_day_with_roost() {
 }
 
 function next_day() {
-    if (days.next()) update_nav_then_render_day();
+    if (window.days.next()) update_nav_then_render_day();
 }
 
 function next_day_with_roost() {

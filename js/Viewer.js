@@ -123,21 +123,25 @@ function render_day() {
 
     // Populate day notes set up handlers
     var notes = d3.select("#dayNotes");
-    notes.node().value = day_notes.get(day_key);
+    if (window.day_notes.get(day_key)){
+        notes.node().value = window.day_notes.get(day_key);
+    }
+    
     notes.on("change", () => save_day_notes());
     /* notes.on("keydown", (e) => {
         if (e.which == 13) notes.node().blur();
     });
     */
     // 
-
-    var allframes = scans.get(day_key); // list of scans
+    var allframes = window.scans.get(day_key); // list of scans
     var frames_with_roosts = [];
     if (boxes_by_day.has(day_key)) {
         frames_with_roosts = boxes_by_day.get(day_key).map(d => d.filename);
     }
 
-    frames = new BoolList(allframes, frames_with_roosts);
+    if (allframes) {
+        frames = new BoolList(allframes, frames_with_roosts);
+    }
 
     var timeSelect = d3.select("#timeSelect");
 
@@ -165,7 +169,7 @@ function render_day() {
 function save_day_notes() {
     let key = days.currentItem; // string representation of date
     let value = d3.select("#dayNotes").node().value;
-    day_notes.set(key, value);
+    window.day_notes.set(key, value);
 }
 
 export function update_nav_then_render_frame() {

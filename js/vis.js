@@ -19,9 +19,11 @@ import handle_keydown from './KeymapUtils.js';
 window.days = new BoolList([], []);					// BoolList of dates
 window.frames = new BoolList([], []);						// BoolList of frames for current day
 
+window.unviewed_days = [];
+
 window.scans = {};					// List of scans for selected "batch"
 window.boxes = {};					// All boxes
-window.boxes_by_day = {};           // Boxes grouped by local dates
+window.boxes_by_day = [];           // Boxes grouped by local dates
 window.tracks = {};					// All tracks
 
 window.active_tracks = {};			// boxes active in current frame
@@ -32,6 +34,9 @@ window.svgs = {};				// Top-level svg elements
 
 window.config = {};                // UI config
 window.dataset_config = {};         // Dataset config
+
+window.discountEnabled = false;
+window.discountFile = "";
 
 window.nav = {					// Navigation state
 	"dataset": "",
@@ -90,6 +95,8 @@ var UI = (function () {
 		d3.select("#export").on("click", export_sequences);
 		d3.select("#notes-save").on("click", save_notes);
 		d3.select('body').on('keydown', handle_keydown);
+		d3.select('#discount').on('click', handle_discount_button);
+		document.getElementById('discount_button').disabled = true;
 
 		// Populate datasets
 		var datasets = d3.select('#datasets');
@@ -207,14 +214,70 @@ var UI = (function () {
 		render_batch();
 	}
 
+	function handle_discount_button() {
+		if (window.discountEnabled == true) {
+			Promise.all([d3.text(window.discountFile)])
+				.then(data => {
+					return handle_discount(data);
+				})
+		}
+	}
+
+	function handle_discount(discount_list) {
+		discount_list = discount_list[0].trim().split("\n");
+		let dl = discount_list.map((d) => parse_day(d))
+
+		//we need to sort boxes by day 
+		let to_sort = [...window.boxes_by_day.keys()];
+		to_sort.sort((a, b) => discount_list.indexOf(a) - discount_list.indexOf(b));
+		window.days = new BoolList(discount_list, to_sort);
+		window.unviewed_days = discount_list;
+		var dates = d3.select('#dateSelect');
+		dates.selectAll("option")
+			.data(dl)
+			.join("option")
+			.text(function (d, i) {
+				return i + ": " + d
+			});
+		dates.on("change", change_day);
+
+		// If the batch nav is not set already, used the selected value
+		// from the dropdown list
+		if (!nav.batch) {
+			nav.batch = batches.node().value;
+		}
+	}
+
+	function fileExists(url) {
+		var http = new XMLHttpRequest();
+		http.open('HEAD', url, false);
+		http.send();
+		return http.status != 404;
+	}
+
 	//Renders the current batch based on user input (current batch = batch )
 	function render_batch() {
+		document.getElementById('discount_button').disabled = true;
+		window.discountEnabled = false;
 
 		if (window.onbeforeunload &&
 			!window.confirm("Change batches? You made changes but did not export data.")) {
 			return;
 		}
 		window.onbeforeunload = null;
+
+		//check to see if batch has a discount file 
+		var discount_file_name = null;
+		var discount_file = null;
+
+		discount_file_name = expand_pattern(dataset_config["discount"], nav);
+		discount_file = sprintf(discount_file_name);
+
+		if (fileExists(discount_file)) {
+			document.getElementById('discount_button').disabled = false;
+			window.discountEnabled = true;
+			window.discountFile = discount_file
+		}
 
 		if (nav.batch) {
 
@@ -238,7 +301,7 @@ var UI = (function () {
 				}
 
 				// group scans by local_date
-				scans = d3.group(scans, (d) => d.local_date);
+				window.scans = d3.group(scans, (d) => d.local_date);
 			}
 
 			// convert a row of the csv file into Box object
@@ -274,7 +337,7 @@ var UI = (function () {
 
 			// Load boxes and create tracks when new batch is selected
 			function handle_boxes(_boxes) {
-				boxes = _boxes;
+				window.boxes = _boxes;
 				boxes_by_day = d3.group(boxes, d => d.local_date);
 
 				let summarizer = function (v) { // v is the list of boxes for one track
@@ -306,7 +369,7 @@ var UI = (function () {
 					});
 				};
 
-				tracks = d3.rollup(boxes, summarizer, d => d.track_id);
+				window.tracks = d3.rollup(window.boxes, summarizer, d => d.track_id);
 
 				// Link boxes to their tracks
 				for (var box of boxes) {
@@ -324,11 +387,12 @@ var UI = (function () {
 				enable_filtering();
 
 				days = new BoolList(scans.keys(), boxes_by_day.keys());
+
 				// scans were grouped by local_dates, scans.keys() are local_dates
 
 				// Initialize notes
 				day_notes = new Map();
-				for (let day of days.items) {
+				for (let day of window.days.items) {
 					day_notes.set(day, ''); // local_date
 				}
 				for (let box of boxes) {
@@ -403,6 +467,9 @@ var UI = (function () {
 		n.blur();
 		nav.day = n.value;
 		days.currentInd = n.value;
+		/* if (window.unviewed_days.contains(n.value) {
+			window.unviewed_days.delete(n.value)
+		} */
 		update_nav_then_render_day();
 	}
 
@@ -429,8 +496,8 @@ var UI = (function () {
 		}
 
 		// Assign day notes to box
-		for (let box of boxes) {
-			box['day_notes'] = day_notes.get(box['local_date']);
+		for (let box of window.boxes) {
+			box['day_notes'] = window.day_notes.get(box['local_date']);
 		}
 
 		// This is the list of output columns
