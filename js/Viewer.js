@@ -4,7 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { BoolList } from './BoolList.js';
 import {
     parse_time, parse_scan,
-    get_urls, obj2url
+    get_urls, obj2url, parse_day
 } from './utils.js';
 import Track from './Track.js';
 import * as d3 from 'd3';
@@ -113,20 +113,27 @@ export function render_frame() {
 //Renders the current day based on user input (current day = dataset, batch, day set )
 function render_day() {
     var days = window.days;
-    var scans = window.scans;
+
     if (window.nav["dataset"] === "") return;
 
     days.currentInd = nav.day;
+
     d3.select("#dateSelect").property("value", days.currentInd);
 
     var day_key = days.currentItem; // string representation of date
 
+    if (window.discountEnabled) {
+        let ud = window.unviewed_days
+        let current = nav.day.toString() + ": " + parse_day(day_key)
+        window.unviewed_days = ud.filter(e => e !== current)
+    }
+
     // Populate day notes set up handlers
     var notes = d3.select("#dayNotes");
-    if (window.day_notes.get(day_key)){
+    if (window.day_notes.get(day_key)) {
         notes.node().value = window.day_notes.get(day_key);
     }
-    
+
     notes.on("change", () => save_day_notes());
     /* notes.on("keydown", (e) => {
         if (e.which == 13) notes.node().blur();
