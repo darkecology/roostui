@@ -2,7 +2,7 @@
 
 NAME=${1:-ui-test}
 HOST=${2:-doppler.cs.umass.edu}
-DST=${3:-/var/www/html/roost/}
+DST=${3:-/var/www/html/roost-ui-dev}
 
 FULLPATH=$DST/$NAME
 

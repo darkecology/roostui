@@ -152,12 +152,17 @@ var UI = (function () {
 		nav.batch = '';
 		nav.day = 0;
 		nav.frame = 0;
+		document.getElementById('discount_button').setAttribute("disabled",'disabled');
+		window.discountEnabled = false;
+		window.discount_start = ""; 
+		window.discount_end = "";
 
 		render_dataset();
 	}
 
 	//Renders the current dataset based on user input (current dataset = dataset )
 	function render_dataset() {
+		
 		// If work needs saving, check if user wants to proceed
 		if (window.onbeforeunload &&
 			!window.confirm("Change dataset? You made changes but did not export data.")) {
@@ -215,11 +220,16 @@ var UI = (function () {
 		nav.batch = batches.value;
 		nav.day = 0;
 		nav.frame = 0;
+		document.getElementById('discount_button').setAttribute("disabled",'disabled');
+		window.discountEnabled = false;
+		window.discount_start = ""; 
+		window.discount_end = "";
 
 		render_batch();
 	}
 
 	function handle_discount_button() {
+		console.log("is it enabled", window.discountEnabled)
 		if (window.discountEnabled == true) {
 			Promise.all([d3.text(window.discountFile)])
 				.then(data => {
@@ -258,6 +268,7 @@ var UI = (function () {
 			if (!nav.batch) {
 				nav.batch = batches.node().value;
 			}
+
 			ViewModule();
 
 		}
@@ -265,6 +276,9 @@ var UI = (function () {
 	}
 
 	function fileExists(url) {
+		if (url == ""){
+			return false
+		}
 		var http = new XMLHttpRequest();
 		http.open('HEAD', url, false);
 		http.send();
@@ -273,9 +287,6 @@ var UI = (function () {
 
 	//Renders the current batch based on user input (current batch = batch )
 	function render_batch() {
-		document.getElementById('discount_button').disabled = true;
-		window.discountEnabled = false;
-
 		if (window.onbeforeunload &&
 			!window.confirm("Change batches? You made changes but did not export data.")) {
 			return;
@@ -285,12 +296,11 @@ var UI = (function () {
 		//check to see if batch has a discount file 
 		var discount_file_name = null;
 		var discount_file = null;
-
 		discount_file_name = expand_pattern(dataset_config["discount"], nav);
 		discount_file = sprintf(discount_file_name);
 
 		if (fileExists(discount_file)) {
-			document.getElementById('discount_button').disabled = false;
+			document.getElementById('discount_button').removeAttribute('disabled');
 			d3.select("#export").on("click", discount_export_sequences);
 			window.discountEnabled = true;
 			window.discountFile = discount_file
@@ -459,6 +469,9 @@ var UI = (function () {
 
 					start_discountdates.on("change", change_discount_range)
 					end_discountdates.on("change", change_discount_range)
+
+					window.discount_start = d3.select("#discountStartDateSelect").node().value;
+					window.discount_end = d3.select("#discountEndDateSelect").node().value;
 
 				}
 
