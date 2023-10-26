@@ -40,6 +40,7 @@ window.discountFile = "";
 
 window.discount_start = ""
 window.discount_end = ""
+window.discount_toggle = false;
 
 window.nav = {					// Navigation state
 	"dataset": "",
@@ -152,9 +153,9 @@ var UI = (function () {
 		nav.batch = '';
 		nav.day = 0;
 		nav.frame = 0;
-		document.getElementById('discount_button').setAttribute("disabled",'disabled');
+		document.getElementById('discount_button').setAttribute("disabled", 'disabled');
 		window.discountEnabled = false;
-		window.discount_start = ""; 
+		window.discount_start = "";
 		window.discount_end = "";
 
 		render_dataset();
@@ -162,7 +163,7 @@ var UI = (function () {
 
 	//Renders the current dataset based on user input (current dataset = dataset )
 	function render_dataset() {
-		
+
 		// If work needs saving, check if user wants to proceed
 		if (window.onbeforeunload &&
 			!window.confirm("Change dataset? You made changes but did not export data.")) {
@@ -220,22 +221,32 @@ var UI = (function () {
 		nav.batch = batches.value;
 		nav.day = 0;
 		nav.frame = 0;
-		document.getElementById('discount_button').setAttribute("disabled",'disabled');
+		document.getElementById('discount_button').setAttribute("disabled", 'disabled');
 		window.discountEnabled = false;
-		window.discount_start = ""; 
+		window.discount_start = "";
 		window.discount_end = "";
 
 		render_batch();
 	}
 
 	function handle_discount_button() {
-		console.log("is it enabled", window.discountEnabled)
-		if (window.discountEnabled == true) {
-			Promise.all([d3.text(window.discountFile)])
-				.then(data => {
-					return handle_discount(data);
-				})
+		window.discount_toggle = !window.discount_toggle;
+		console.log("discount", window.discount_toggle)
+		if (window.discount_toggle) {
+			if (window.discountEnabled == true) {
+				document.getElementById('discount_button').value = "End DISCount"
+				Promise.all([d3.text(window.discountFile)])
+					.then(data => {
+						return handle_discount(data);
+					})
+			}
+
 		}
+		else {
+			document.getElementById('discount_button').value = "DISCount"
+			render_batch();
+		}
+
 	}
 
 	function handle_discount(discount_list) {
@@ -276,7 +287,7 @@ var UI = (function () {
 	}
 
 	function fileExists(url) {
-		if (url == ""){
+		if (url == "") {
 			return false
 		}
 		var http = new XMLHttpRequest();
