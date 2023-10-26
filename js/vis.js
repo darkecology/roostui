@@ -231,7 +231,6 @@ var UI = (function () {
 
 	function handle_discount_button() {
 		window.discount_toggle = !window.discount_toggle;
-		console.log("discount", window.discount_toggle)
 		if (window.discount_toggle) {
 			if (window.discountEnabled == true) {
 				document.getElementById('discount_button').value = "End DISCount"
