@@ -269,7 +269,7 @@ var UI = (function () {
 				.data(dl)
 				.join("option")
 				.text(function (d, i) {
-					return i + ": " + d
+					return i 
 				});
 			dates.on("change", change_day);
 
@@ -462,8 +462,7 @@ var UI = (function () {
 						.join("option")
 						.attr("value", (d, i) => i)
 						.text(function (d, i) {
-							var str = parse_day(d);
-							return days.isTrue(i) ? str : "(" + str + ")";
+							return i
 						});
 
 					var end_discountdates = d3.select('#discountEndDateSelect');
@@ -473,8 +472,7 @@ var UI = (function () {
 						.join("option")
 						.attr("value", (d, i) => i)
 						.text(function (d, i) {
-							var str = parse_day(d);
-							return days.isTrue(i) ? str : "(" + str + ")";
+							return i
 						}).property("selected", function (d, i) { return i == N - 1; })
 
 					start_discountdates.on("change", change_discount_range)
