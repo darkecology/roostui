@@ -242,8 +242,14 @@ var UI = (function () {
 
 		}
 		else {
-			document.getElementById('discount_button').value = "DISCount"
-			render_batch();
+			if (window.onbeforeunload &&
+				!window.confirm("End DISCount? You made changes but did not export data.")) {
+				return;
+			}
+			else {
+				document.getElementById('discount_button').value = "DISCount"
+				render_batch();
+			}
 		}
 
 	}
@@ -269,7 +275,7 @@ var UI = (function () {
 				.data(dl)
 				.join("option")
 				.text(function (d, i) {
-					return i+1 + ": " + d
+					return i + 1 + ": " + d
 				});
 			dates.on("change", change_day);
 
@@ -462,7 +468,7 @@ var UI = (function () {
 						.join("option")
 						.attr("value", (d, i) => i)
 						.text(function (d, i) {
-							return i+1
+							return i + 1
 						});
 
 					var end_discountdates = d3.select('#discountEndDateSelect');
@@ -472,7 +478,7 @@ var UI = (function () {
 						.join("option")
 						.attr("value", (d, i) => i)
 						.text(function (d, i) {
-							return i+1
+							return i + 1
 						}).property("selected", function (d, i) { return i == N - 1; })
 
 					start_discountdates.on("change", change_discount_range)
