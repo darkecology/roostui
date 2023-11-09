@@ -37,7 +37,7 @@ window.dataset_config = {};         // Dataset config
 
 window.discountEnabled = false;
 window.discountFile = "";
-
+window.discountDates = new BoolList([], []);
 window.discount_start = ""
 window.discount_end = ""
 window.discount_toggle = false;
@@ -256,9 +256,9 @@ var UI = (function () {
 
 	function handle_discount(discount_list) {
 		discount_list = discount_list[0].trim().split("\n");
-		let st = Array.from(scans.keys())[parseInt(window.discount_start)]
-		let end = Array.from(scans.keys())[parseInt(window.discount_end)]
-		let filtered_list = discount_list.filter((x) => x >= st && x <= end)
+		let st = window.discount_start
+		let end = window.discount_end
+		let filtered_list = discount_list.slice(st, end)
 		if (filtered_list === undefined || filtered_list.length == 0) {
 			alert("This is not a valid date range or there are no dates within this range.")
 		}
@@ -320,6 +320,12 @@ var UI = (function () {
 			d3.select("#export").on("click", discount_export_sequences);
 			window.discountEnabled = true;
 			window.discountFile = discount_file
+			Promise.all([d3.text(discount_file)])
+				.then(data => {
+					window.discountDates = data[0].trim().split("\n");
+				})
+			
+
 		}
 
 		if (nav.batch) {
@@ -464,21 +470,21 @@ var UI = (function () {
 				if (window.discountEnabled) {
 					var start_discountdates = d3.select('#discountStartDateSelect');
 					start_discountdates.selectAll("option")
-						.data(days.items)
+						.data(window.discountDates)
 						.join("option")
 						.attr("value", (d, i) => i)
 						.text(function (d, i) {
-							return i + 1
+							return i+1
 						});
 
 					var end_discountdates = d3.select('#discountEndDateSelect');
-					let N = days.items.length
+					let N = window.discountDates.length
 					end_discountdates.selectAll("option")
-						.data(days.items)
+						.data(window.discountDates)
 						.join("option")
 						.attr("value", (d, i) => i)
 						.text(function (d, i) {
-							return i + 1
+							return i+1 
 						}).property("selected", function (d, i) { return i == N - 1; })
 
 					start_discountdates.on("change", change_discount_range)
