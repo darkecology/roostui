@@ -119,6 +119,7 @@ function render_day() {
     days.currentInd = nav.day;
 
     d3.select("#dateSelect").property("value", days.currentInd);
+    
 
     var day_key = days.currentItem; // string representation of date
 

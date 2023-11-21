@@ -233,6 +233,10 @@ var UI = (function () {
 		window.discount_toggle = !window.discount_toggle;
 		if (window.discount_toggle) {
 			if (window.discountEnabled == true) {
+				if (window.onbeforeunload &&
+					!window.confirm("Enter DISCount mode? You made changes but did not export data.")) {
+					return;
+				}
 				document.getElementById('discount_button').value = "End DISCount"
 				Promise.all([d3.text(window.discountFile)])
 					.then(data => {
@@ -256,14 +260,15 @@ var UI = (function () {
 
 	function handle_discount(discount_list) {
 		discount_list = discount_list[0].trim().split("\n");
+		let discount_text_list = discount_list.map((item, index) => {return (index+1).toString() + ": " + parse_day(item) })
 		let st = window.discount_start
-		let end = window.discount_end
-		let filtered_list = discount_list.slice(st, end)
+		let end = parseInt(window.discount_end) + 1 
+		let filtered_list = discount_text_list.slice(st, end)
 		if (filtered_list === undefined || filtered_list.length == 0) {
 			alert("This is not a valid date range or there are no dates within this range.")
 		}
 		else {
-			let dl = filtered_list.map((d) => parse_day(d))
+			let dl = filtered_list
 
 			//we need to sort boxes by day 
 			let to_sort = [...window.boxes_by_day.keys()];
@@ -274,8 +279,8 @@ var UI = (function () {
 			dates.selectAll("option")
 				.data(dl)
 				.join("option")
-				.text(function (d, i) {
-					return i + 1 + ": " + d
+				.text(function (d) {
+					return d
 				});
 			dates.on("change", change_day);
 
