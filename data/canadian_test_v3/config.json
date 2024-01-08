@@ -1,0 +1,24 @@
+{
+    "dz": {
+        "pattern": "http://doppler.cs.umass.edu/roost/img/%s/dz05/%04d/%02d/%02d/%s/%s.png",
+        "fields": ["dataset", "year", "month", "day", "station", "scan"]
+    },
+    "vr": {
+        "pattern": "http://doppler.cs.umass.edu/roost/img/%s/vr05/%04d/%02d/%02d/%s/%s.png",
+        "fields": ["dataset", "year", "month", "day", "station", "scan"]
+    },
+    "boxes" : {
+        "pattern": "data/%s/tracks_%s.txt",
+        "fields": ["dataset", "batch"]
+    },
+    "scans" : {
+        "pattern": "data/%s/scans_%s.txt",
+        "fields": ["dataset", "batch"]
+    },
+    "filtering" : {
+        "detections_min" : 2,
+        "high_quality_detections_min": 1,
+        "score_min" : 0.5,
+        "avg_score_min" : 0.15
+    }
+}

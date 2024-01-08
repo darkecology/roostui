@@ -21,5 +21,6 @@
                   "polarimetric_202206_v2",
                   "texas_bats_v2",
                   "texas_bats_v3",
-                  "texas_bats_v3_bug"]
+                  "texas_bats_v3_bug",
+		  "canadian_test_v3"]
 }
