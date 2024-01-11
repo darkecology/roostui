@@ -260,7 +260,7 @@ var UI = (function () {
 
 	function handle_discount(discount_list) {
 		discount_list = discount_list[0].trim().split("\n");
-		let discount_text_list = discount_list.map((item, index) => {return (index+1).toString() + ": " + parse_day(item) })
+		let discount_text_list = discount_list.map((item, index) => {return days.isTrue(index) ? (index+1).toString() + ": " + parse_day(item) : (index+1).toString() + ": (" + parse_day(item) + ")"})
 		let st = window.discount_start
 		let end = parseInt(window.discount_end) + 1 
 		let filtered_list = discount_text_list.slice(st, end)
@@ -598,9 +598,10 @@ var UI = (function () {
 
 		let dataStr = d3.csvFormat(window.boxes, cols);
 		let dataUri = 'data:text/csv;charset=utf-8,' + encodeURIComponent(dataStr);
-
 		let filename = sprintf("roost_labels_%s.csv", $("#batches").val());
-
+		if (discountEnabled) {
+			filename = sprintf("roost_labels_%s_%s_%s.csv", $("#batches").val(), discount_start, discount_end);
+		}
 		let linkElement = document.createElement('a');
 		linkElement.setAttribute('href', dataUri);
 		linkElement.setAttribute('download', filename);
