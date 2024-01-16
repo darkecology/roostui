@@ -265,25 +265,26 @@ var UI = (function () {
 		let discount_text_list = discount_list.map((item, index) => { return days.isTrue(index) ? (index + 1).toString() + ": " + parse_day(item) : (index + 1).toString() + ": (" + parse_day(item) + ")" })
 		let st = window.discount_start
 		let end = parseInt(window.discount_end) + 1
-		let filtered_list = discount_text_list.slice(st, end)
-		if (filtered_list === undefined || filtered_list.length == 0) {
+		let filtered_text_list = discount_text_list.slice(st, end)
+		let filtered_list = discount_list.slice(st, end)
+		if (filtered_text_list === undefined || filtered_text_list.length == 0) {
 			alert("This is not a valid date range or there are no dates within this range.")
 		}
 		else {
-			let dl = filtered_list
+			let dl = filtered_text_list
 			window.displayed_discount_dates = dl; 
 
 			//we need to sort boxes by day 
 			let to_sort = [...window.boxes_by_day.keys()];
-			to_sort.sort((a, b) => discount_list.indexOf(a) - discount_list.indexOf(b));
-			window.days = new BoolList(discount_list, to_sort);
+			to_sort.sort((a, b) => filtered_list.indexOf(a) - filtered_list.indexOf(b));
+			window.days = new BoolList(filtered_list, to_sort);
 			window.unviewed_days = dl;
 			var dates = d3.select('#dateSelect');
 			dates.selectAll("option")
-				.data(dl)
+				.data(filtered_list)
 				.join("option")
-				.text(function (d) {
-					return d
+				.text(function (d, i) {
+					return filtered_text_list[i]
 				});
 			dates.on("change", change_day);
 
@@ -292,6 +293,8 @@ var UI = (function () {
 			if (!nav.batch) {
 				nav.batch = batches.node().value;
 			}
+			nav.day = 0;
+			nav.frame = 0 
 
 			ViewModule();
 

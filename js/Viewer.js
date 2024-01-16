@@ -123,6 +123,7 @@ function render_day() {
 
     var day_key = days.currentItem; // string representation of date
 
+
     if (window.discount_toggle) {
         let ud = window.unviewed_days
         let current = window.displayed_discount_dates[nav.day];
