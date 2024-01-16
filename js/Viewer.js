@@ -123,9 +123,9 @@ function render_day() {
 
     var day_key = days.currentItem; // string representation of date
 
-    if (window.discountEnabled) {
+    if (window.discount_toggle) {
         let ud = window.unviewed_days
-        let current = nav.day.toString() + ": " + parse_day(day_key)
+        let current = window.displayed_discount_dates[nav.day];
         window.unviewed_days = ud.filter(e => e !== current)
     }
 
