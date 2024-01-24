@@ -1,7 +1,6 @@
 {
     "datasets" : ["train",
-                  "all_stations_v1",
-                  "all_stations_v2",
+                  "us_sunrise_v3",
                   "all_stations_v2_screened",
                   "all_stations_v3",
                   "birdwatcher_202207_v2",
@@ -9,6 +8,8 @@
                   "birdwatcher_202209_v2",
                   "birdwatcher_202210_v2",
                   "texas_bats_v3_long",
+                  "all_stations_v1",
+                  "all_stations_v2",
                   "clutter",
                   "conf_present_202206_v2",
                   "greatlakes-2019",
