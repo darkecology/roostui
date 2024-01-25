@@ -41,7 +41,7 @@ window.discountDates = new BoolList([], []);
 window.discount_start = ""
 window.discount_end = ""
 window.discount_toggle = false;
-window.displayed_discount_dates = []; 
+window.displayed_discount_dates = [];
 
 window.nav = {					// Navigation state
 	"dataset": "",
@@ -255,30 +255,66 @@ var UI = (function () {
 		}
 		else {
 			document.getElementById('discount_button').value = "DISCount"
-			render_batch();
+			render_batch_no_changes();
 		}
+
+	}
+
+	function render_batch_no_changes() {
+		window.days = new BoolList(window.scans.keys(), window.boxes_by_day.keys());
+
+		var dateSelect = d3.select("#dateSelect");
+		var options = dateSelect.selectAll("option")
+			.data(window.days.items);
+
+		options.enter()
+			.append("option")
+			.merge(options)
+			.attr("value", (d, i) => i)
+			.text(function (d, i) {
+				var str = parse_day(d);
+				return days.isTrue(i) ? str : "(" + str + ")";
+			});
+
+		options.exit().remove();
+
+		if (!nav.batch) {
+			nav.batch = batches.node().value;
+		}
+		nav.day = 0;
+		nav.frame = 0
+		dateSelect.on("change", change_day);
+
+		ViewModule();
+
 
 	}
 
 	function handle_discount(discount_list) {
 		discount_list = discount_list[0].trim().split("\n");
-		let discount_text_list = discount_list.map((item, index) => { return days.isTrue(index) ? (index + 1).toString() + ": " + parse_day(item) : (index + 1).toString() + ": (" + parse_day(item) + ")" })
+		
 		let st = window.discount_start
 		let end = parseInt(window.discount_end) + 1
-		let filtered_text_list = discount_text_list.slice(st, end)
+		
 		let filtered_list = discount_list.slice(st, end)
-		if (filtered_text_list === undefined || filtered_text_list.length == 0) {
+		if (filtered_list === undefined || filtered_list.length == 0) {
 			alert("This is not a valid date range or there are no dates within this range.")
 		}
 		else {
-			let dl = filtered_text_list
-			window.displayed_discount_dates = dl; 
-
 			//we need to sort boxes by day 
 			let to_sort = [...window.boxes_by_day.keys()];
 			to_sort.sort((a, b) => filtered_list.indexOf(a) - filtered_list.indexOf(b));
 			window.days = new BoolList(filtered_list, to_sort);
+
+			let discount_text_list = discount_list.map((item, index) => { return days.isTrue(index) ? (index + 1).toString() + ": " + parse_day(item) : (index + 1).toString() + ": (" + parse_day(item) + ")" })
+
+			let filtered_text_list = discount_text_list.slice(st, end)
+
+			let dl = filtered_text_list
+
+			window.displayed_discount_dates = dl; 
 			window.unviewed_days = dl;
+
 			var dates = d3.select('#dateSelect');
 			dates.selectAll("option")
 				.data(filtered_list)
@@ -294,7 +330,7 @@ var UI = (function () {
 				nav.batch = batches.node().value;
 			}
 			nav.day = 0;
-			nav.frame = 0 
+			nav.frame = 0
 
 			ViewModule();
 
@@ -563,7 +599,7 @@ var UI = (function () {
 		if (discountEnabled) {
 			var modal = d3.select("#export-modal");
 			modal.style("display", "block")
-			if (window.unviewed_days.length == 0){
+			if (window.unviewed_days.length == 0) {
 				d3.select("#modal_unviewed").style("visibility", "hidden");
 			}
 			d3.select("#unviewed_days").text(window.unviewed_days)
@@ -602,7 +638,7 @@ var UI = (function () {
 		let dataUri = 'data:text/csv;charset=utf-8,' + encodeURIComponent(dataStr);
 		let filename = sprintf("roost_labels_%s.csv", $("#batches").val());
 		if (window.discountEnabled) {
-			filename = sprintf("roost_labels_%s_%d_%d.csv", $("#batches").val(), (+discount_start)+1, (+discount_end)+1);
+			filename = sprintf("roost_labels_%s_%d_%d.csv", $("#batches").val(), (+discount_start) + 1, (+discount_end) + 1);
 		}
 		let linkElement = document.createElement('a');
 		linkElement.setAttribute('href', dataUri);
