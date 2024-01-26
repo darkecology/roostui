@@ -2,7 +2,7 @@
     "datasets" : ["texas_bats_v3",
                   "texas_bats_v3_long",
                   "kokx_sunrise_v3",
-                  "us_sunrise_pilot0124",
+                  "us_sunrise_v3_pilot0124",
                   "us_sunrise_v3",
                   "all_stations_v2_screened",
                   "all_stations_v3",
