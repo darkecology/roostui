@@ -33,9 +33,9 @@ export default class Track {
 
     //saves the notes input by the user 
     save_notes(box) {
-		box.track.notes = document.getElementById('notes').value;
-		box.user_labeled = true;
-	}
+        box.track.notes = document.getElementById('notes').value;
+        box.user_labeled = true;
+    }
 
     //selects the track and opens the tooltip 
     select(node) {
@@ -102,6 +102,11 @@ export default class Track {
             .html('<a href="#"> View on map</a>')
             .on("click", () => this.mapper(box));
 
+        var zero_code = 48;
+        for (let i = 0; i < labels.length; i++) {
+            window.keymap[zero_code + parseInt(i + 1)] =
+                ((label) => () => this.setLabel(label))(labels[i]);
+        }
         // Create notes box
         var notes = tip.select("#notes");
         notes.node().value = box.track.notes;

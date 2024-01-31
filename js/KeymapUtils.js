@@ -97,21 +97,15 @@ function next_day() {
 function next_day_with_roost() {
     if (days.nextTrue()) update_nav_then_render_day();
 }
-function enable_shortcuts() {
-    for (let i = 0; i < labels.length; i++) {
-        keymap['48' + parseInt(i + 1)] =
-            ((label) => () => this.setLabel(label))(labels[i]);
-    }
-}
 
-const keymap = {
+
+window.keymap = {
     '9': next_box, // tab
     '27': unselect_box, // esc
     '38': prev_day, // up
     '40': next_day, // down 
     '37': prev_frame,	// left
     '39': next_frame,   // right
-    '48': enable_shortcuts
 };
 
 const shift_keymap = {
@@ -128,7 +122,7 @@ export default function handle_keydown(e) {
         return;
     }
     var code = e.keyCode;
-    var map = e.shiftKey ? shift_keymap : keymap;
+    var map = e.shiftKey ? shift_keymap : window.keymap;
     if (code in map) {
         e.preventDefault();
         e.stopPropagation();
