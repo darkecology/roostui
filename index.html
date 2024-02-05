@@ -187,6 +187,10 @@
     text-decoration: none;
     cursor: pointer;
   }
+
+  .discountLink{
+    position:fixed; 
+  }
 </style>
 
 <body>
@@ -216,7 +220,7 @@
   </div>
   <div id="export-modal" class="modal">
     <div class="modal-content">
-      Are you sure you would like to export? 
+      Are you sure you would like to export?
       <div id="modal_unviewed">These days have not been viewed: <br></div>
       <div id="unviewed_days"></div>
       <br>
@@ -254,7 +258,16 @@
     <span id="delete_track"></span>
   </div>
 
+  <br>
+  <div id="discountLink">
+    <input id="discountLinkButton" type="button" value="Open scan in normal mode"></input>
+  </div>
+
+
   <div id="viewer"></div>
+  
+
+
 </body>
 
 <script type="module" src="./dist/demo.js"></script>
