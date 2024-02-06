@@ -263,12 +263,12 @@ var UI = (function () {
 		window.discount_toggle = !window.discount_toggle;
 		if (window.discount_toggle) {
 			if (window.discountEnabled == true) {
-				document.getElementById('discount_button').value = "End DISCount"
 				if (window.onbeforeunload &&
-					! window.confirm("Switch to DISCount? You made changes but did not export data."))
+					!window.confirm("Switch to DISCount? You made changes but did not export data."))
 				{
 						return; 
 				}
+				document.getElementById('discount_button').value = "End DISCount"
 				window.onbeforeunload = null;
 				Promise.all([d3.text(window.discountFile)])
 					.then(data => {
@@ -280,7 +280,7 @@ var UI = (function () {
 		else {
 			document.getElementById('discount_button').value = "DISCount"
 			if (window.onbeforeunload &&
-				! window.confirm("Switch to normal mode? You made changes but did not export data."))
+				!window.confirm("Switch to normal mode? You made changes but did not export data."))
 			{
 					return; 
 			}
@@ -294,6 +294,10 @@ var UI = (function () {
 
 
 	function handle_discount(discount_list) {
+
+		if (window.discount_toggle){
+			d3.select("#export").on("click", discount_export_sequences);
+		}
 
 		document.getElementById('discountLinkButton').removeAttribute('disabled');
 
@@ -491,10 +495,11 @@ var UI = (function () {
 		var discount_file = null;
 		discount_file_name = expand_pattern(dataset_config["discount"], nav);
 		discount_file = sprintf(discount_file_name);
-
+		
+		
 		if (fileExists(discount_file)) {
 			document.getElementById('discount_button').removeAttribute('disabled');
-			d3.select("#export").on("click", discount_export_sequences);
+			
 			window.discountEnabled = true;
 			window.discountFile = discount_file
 			Promise.all([d3.text(discount_file)])
@@ -732,7 +737,7 @@ var UI = (function () {
 
 	//export data 
 	function discount_export_sequences() {
-		if (discountEnabled) {
+		if (window.discount_toggle) {
 			var modal = d3.select("#export-modal");
 			modal.style("display", "block")
 			if (window.unviewed_days.length == 0) {
@@ -773,7 +778,7 @@ var UI = (function () {
 		let dataStr = d3.csvFormat(window.boxes, cols);
 		let dataUri = 'data:text/csv;charset=utf-8,' + encodeURIComponent(dataStr);
 		let filename = sprintf("roost_labels_%s.csv", $("#batches").val());
-		if (window.discountEnabled) {
+		if (window.discount_toggle) {
 			filename = sprintf("roost_labels_%s_%d_%d.csv", $("#batches").val(), (+discount_start) + 1, (+discount_end) + 1);
 		}
 		let linkElement = document.createElement('a');
