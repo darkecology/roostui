@@ -1,1 +1,1 @@
-track_id,filename,from_sunset,det_score,x,y,r,lon,lat,radius,local_time
+track_id,filename,from_sunset,det_score,x,y,r,lon,lat,radius,geo_dist,local_time
