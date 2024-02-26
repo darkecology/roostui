@@ -177,6 +177,10 @@ export default class Track {
     //deletes the track 
     delete_track(track_id) {
 
+        if (!window.confirm("Delete track?")) {
+            return;
+        }
+
         // find the track
         if (window.tracks.has(track_id)) {
             window.tracks.delete(track_id);
