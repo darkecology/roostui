@@ -131,9 +131,12 @@ function render_day() {
     }
 
     // Populate day notes set up handlers
-    var notes = d3.select("#dayNotes");
+    var notes = d3.select("#dayNotes");   
     if (window.day_notes.get(day_key)) {
         notes.node().value = window.day_notes.get(day_key);
+    }
+    else {
+        notes.node().value = ""
     }
 
     notes.on("change", () => save_day_notes());
