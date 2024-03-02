@@ -1,6 +1,6 @@
 {
     "datasets" : ["texas_bats_v3",
-                  "texas_bats_v3_long",
+                  "texas_bats_v3_more",
                   "kokx_sunrise_v3",
                   "us_sunrise_v3_pilot0124",
                   "us_sunrise_v3",
@@ -24,5 +24,6 @@
                   "greatlakes_test_v3_det005",
                   "polarimetric_202206_v2",
                   "texas_bats_v2",
+                  "texas_bats_v3_long",
                   "texas_bats_v3_bug"]
 }
