@@ -1,41 +1,45 @@
 # Adding new data to the website
 
+## Deployment outputs
 Deploying the [roost-system](https://github.com/darkecology/roost-system) produces four types of outputs: 
-radar `scans`, rendered `arrays`, deployment `logs`, and `ui`-required files. 
-In addition, `slurm_logs` are saved if the deployment happens on a server that uses slurm to manage jobs.
-- `ui`-required files include (1) dz05 and vr05 images to be visualized in the UI and 
-(2) scan, bounding box, and per-sweep animal count lists saved in csv files.
-- Other files are for reference and reusing only. 
-Typically, `scans` are deleted during deployment to save disk space once `arrays` are rendered.
+1. `ui`-required files, including
+   1. `images` of the dz05 and vr05 channels to be visualized in the UI
+   2. `csv` files for scans, bounding boxes, and per-sweep animal counts
+2. radar `scans`, which are typically deleted during deployment to save disk space once `arrays` are rendered
+3. rendered `arrays`
+4. deployment `logs`.
 
-We use the slurm CPU cluster to perform large-scale deployment of the [roost-system](https://github.com/darkecology/roost-system). 
-When we use `tools/launch_demo.py` to process station-years, commands in `tools/demo.sh` should 
-both run the system and transfer outputs from swarm to the doppler server where we host the UI and archive files.
+In addition, 
+5. `slurm_logs` are saved if the deployment happens on a server that uses slurm to manage jobs.
 
-1. Clone this roostui repo to your local machine and pull the latest main branch, if not already. 
-Add csv files to this repo, if not already, as follows. 
-Under `data`, modify arguments in `fetch.sh` and run `bash fetch.sh <dataset_name>`. 
-This will create a new directory `data/<dataset_name>` as needed and 
-pull the csv files in `ui/scans_and_tracks` from swarm. 
+## Archiving and publishing deployment outputs
+1. Clone this roostui repo to your local machine and pull the latest main branch.
 
-2. Run `bash init_dataset.sh <dataset_name>`. This creates two files:
-    * `<dataset_name>/config.json`: configuration file
-    * `<dataset_name>/batches.txt`: list of batches
+2. File transferring:
+   1. We run `tools/launch_demo.py` on the Swarm CPU cluster to process many station-years. 
+   This script calls `tools/demo.sh`, which should both run the system and transfer outputs 
+   from the Swarm server to the Doppler server where we host the UI and archive files.
+   2. Alternatively, we can manually transfer ui-required files by `bash fetch.sh <dataset_name>`.
 
-    Edit these files if needed.
+3. Initialize the new dataset in this roostui repo by `bash init_dataset.sh <dataset_name>`. This creates two files:
+   1. `<dataset_name>/batches.txt`: list of batches
+   2. `<dataset_name>/config.json`: configuration file
 
-3. Edit the main UI config file `data/config.json` to add your dataset.
+   Edit them if needed.
 
-    ~~~ json
-    {"datasets" : ["train", "us_sunrise_v3", "<dataset_name>"]}
-    ~~~
+4. Add the new dataset to the main UI config file `data/config.json`.
 
-4. Test the website locally. See [README in parent directory](../README.md). Usually this means running `yarn run serve` and then navigating to [http://localhost:8888]().
+5. Test the website locally according to the [README in parent directory](../README.md). 
+   Usually this means running `yarn run serve` and then navigating to [http://localhost:8888]().
 
-5. From the root of this repo, publish the website on doppler by `bash publish.sh <website_name>`. 
-We currently use `ui` as the <website_name>.
-If your "local machine" is a directory on doppler, run `bash publish_local.sh <website_name>` will do the same.
+6. Publish the website on Doppler by running `bash publish.sh <website_name>` in the parent directory. 
+   1. We currently use `ui` as the <website_name>.
+   2. If your "local machine" is a directory on Doppler, run `bash publish_local.sh <website_name>` will do the same.
+   
+   **Now the latest results should be visible on the web UI!**
 
-7. Commit and push your changes to github. 
-`chmod` so that the directories on doppler can be modified by teammates. 
-Clean files on swarm to prevent out-of-space errors in furture deployment.
+7. Finally,
+   1. Commit and push your changes to Github.
+   2. Clean files on Swarm to prevent out-of-space errors in furture deployment.
+   3. `chmod` so that the directories on Doppler can be modified by teammates. 
+   
