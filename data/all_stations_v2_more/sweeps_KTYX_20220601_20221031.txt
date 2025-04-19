@@ -1,1 +1,0 @@
-track_id,filename,sweep_idx,sweep_angle,count_scaling,n_roost_pixels,n_weather_pixels,n_highZ_pixels_30,n_animals,n_animals_30
