@@ -1,191 +1,273 @@
 <html>
-  <head>
-    <title>Roost Detection Visualization</title>
 
-    
-    
-  </head>
-  
-  <style>
+<head>
+  <title>Roost Detection Visualization</title>
 
-    html {
-        font-family: sans-serif;
-    }
-    
-    #instructions, #controls, #filtering, #plot, #info {
-        padding: 5px;
-        display:inline-block;
-        vertical-align: middle;
-    }
 
-    div.tooltip {
-        position: absolute;
-        display: inline-block;
-        //text-align: center;
-        //width: 200px;
-        //height: 120px;
-        padding: 2px;	
-        font: 12px sans-serif;	
-        background: white;
-        border: 0px;					
-        border-radius: 8px;
-        z-index: 100;
-    }
 
-    div.tooltip::after {
-        content: " ";
-        position: absolute;
-        top: 50%;
-        right: 100%; /* To the left of the tooltip */
-        margin-top: -10px;
-        border-width: 10px;
-        border-style: solid;
-        border-color: transparent white transparent transparent;
-    }
+</head>
 
-    
+<style>
+  html {
+    font-family: sans-serif;
+  }
+
+  #instructions,
+  #controls,
+  #filtering,
+  #plot,
+  #info,
+  #discount {
+    padding: 5px;
+    display: inline-block;
+    vertical-align: top;
+  }
+
+  div.tooltip {
+    position: absolute;
+    display: inline-block;
+    //text-align: center;
+    //width: 200px;
+    //height: 120px;
+    padding: 2px;
+    font: 12px sans-serif;
+    background: white;
+    border: 0px;
+    border-radius: 8px;
+    z-index: 100;
+  }
+
+  div.tooltip::after {
+    content: " ";
+    position: absolute;
+    top: 50%;
+    right: 100%;
+    /* To the left of the tooltip */
+    margin-top: -10px;
+    border-width: 10px;
+    border-style: solid;
+    border-color: transparent white transparent transparent;
+  }
+
+
   /* #controls { */
-    /*     width: 300px; */
-    /* } */
+  /*     width: 300px; */
+  /* } */
 
-    /* #filtering { */
-    /*     // width: 500px; */
-    /* } */
+  /* #filtering { */
+  /*     // width: 500px; */
+  /* } */
 
-    ul {
-        margin-top: 5px;
-        padding-left: 15px;
-    }
+  ul {
+    margin-top: 5px;
+    padding-left: 15px;
+  }
 
-    #instructions {
-        width: 260px;
-    }
-    
-    #plot {
-        width:400px;
-        height:100px;
-    }
-        
-    #comment_div {
-        width: 340px;
-    }
+  #instructions {
+    width: 260px;
+  }
 
-    #comment {
-        width: 300px;
-    }
+  #plot {
+    width: 400px;
+    height: 100px;
+  }
 
-    #viewer {
-        position: relative;
-        align: center;
-    }
+  #comment_div {
+    width: 340px;
+  }
 
-    
-    #img1, #svg1 {
-        position: absolute;
-        left: 0px;
-        top: 0px;
-        width: 600px;
-        height: 600px;
-    }
+  #comment {
+    width: 300px;
+  }
 
-    #img2, #svg2 {
-        position: absolute;
-        left: 600px;
-        top: 0px;
-        width: 600px;
-        height: 600px;
-    }
+  #viewer {
+    position: relative;
+    align: center;
+  }
 
-    /* Unfiltered */
-    .bbox > rect {
-        stroke-width: 3;
-        pointer-events: all;
-    }
 
-    .bbox > text {
-        stroke: #ffffff;
-        fill: #ffffff;
-    }
+  #img1,
+  #svg1 {
+    position: absolute;
+    left: 0px;
+    top: 0px;
+    width: 600px;
+    height: 600px;
+  }
 
-    /* Unfiltered + selected */
-    .bbox.selected > rect {
-        fill: orange;
-        fill-opacity: 0.7;
-    }
+  #img2,
+  #svg2 {
+    position: absolute;
+    left: 600px;
+    top: 0px;
+    width: 600px;
+    height: 600px;
+  }
 
-    /* Filtered, selected */
-    .bbox.filtered.selected {
-        opacity: 0.7;
-    }
-    
-    /* Filtered,  unselected */
-    .bbox.filtered {
-        opacity: 0.45;
-    }    
+  /* Unfiltered */
+  .bbox>rect {
+    stroke-width: 3;
+    pointer-events: all;
+  }
 
-    input[type="radio"]{
-        margin: 0 2px 0 2px;
-    }
+  .bbox>text {
+    stroke: #ffffff;
+    fill: #ffffff;
+  }
 
-    #mapper {
-        margin: 0 0 0 10px;
-    }
-  </style>
-  
-  <body>
+  /* Unfiltered + selected */
+  .bbox.selected>rect {
+    fill: orange;
+    fill-opacity: 0.7;
+  }
 
-    <div id="instructions">
-      <ul>
-        <li>up/down for days</li>
-        <li>left/right for frames</li>
-        <li>hover on box or use tab/shift-tab to select for labeling</li>
-      </ul>
-      <input id="export" type="button" value="Export"></input><strong>(REQUIRED TO SAVE)</strong>
-    </div>
-    <div id="controls">
-      <label for="datasets">Dataset:</label>
-      <select id="datasets">
-        <option disabled selected>Select dataset</option>
-      </select> <br/>
-      <label for="batches">Batch:</label>
-      <select id="batches"></select> <br/>
-      <label for="dateSelect">Date:</label>
-      <select id="dateSelect"></select> <br/>
-      <label for="timeSelect">Time:</label>
-      <select id="timeSelect"> </select> <br/>
-      <label for="dayNotes">Notes for day:</label>
-      <input id="dayNotes"> </input> <br/>
-	  
-    </div>
-    
-		 
-    </div>
-    <div id="filtering">
-      <strong>Track filtering</strong>:<br/>
-      <ul>
-        <li>At least <input type="number" min="1" max="10" step="1" id="detections_min" value="2"/> detections</li>
-        <li>At least <input type="number" min="1" max="10" step="1" id="high_quality_detections_min" value="2"/> detections with
-          score at least <input type="number" min="-1" max="1" step="0.05" value="0.05" id="score_min"/></li>
-        <li>Average score at least <input type="number" min="-1" max="1" step="0.05" value="-1" id="avg_score_min"/></li>
-      </ul>
-    </div>
-    <div id="plot">
-    </div>    
-    <div id="labeltip" class="tooltip" style="visibility: hidden;">
-      <div id="labels">
-      </div>
-      Notes: <br>
-      <input type="text" id="notes"></input>
+  /* Filtered, selected */
+  .bbox.filtered.selected {
+    opacity: 0.7;
+  }
+
+  /* Filtered,  unselected */
+  .bbox.filtered {
+    opacity: 0.45;
+  }
+
+  input[type="radio"] {
+    margin: 0 2px 0 2px;
+  }
+
+  #mapper {
+    margin: 0 0 0 10px;
+  }
+
+
+  /* The Modal (background) */
+  .modal {
+    display: none;
+    /* Hidden by default */
+    position: fixed;
+    /* Stay in place */
+    z-index: 1;
+    /* Sit on top */
+    left: 0;
+    top: 0;
+    width: 100%;
+    /* Full width */
+    height: 100%;
+    /* Full height */
+    overflow: auto;
+    /* Enable scroll if needed */
+    background-color: rgb(0, 0, 0);
+    /* Fallback color */
+    background-color: rgba(0, 0, 0, 0.4);
+    /* Black w/ opacity */
+  }
+
+  /* Modal Content/Box */
+  .modal-content {
+    background-color: #fefefe;
+    margin: 15% auto;
+    /* 15% from the top and centered */
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%;
+    /* Could be more or less, depending on screen size */
+  }
+
+  /* The Close Button */
+  .close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+  }
+
+  .close:hover,
+  .close:focus {
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .discountLink{
+    position:fixed; 
+  }
+</style>
+
+<body>
+
+  <div id="instructions">
+    <ul>
+      <li>up/down for days</li>
+      <li>left/right for frames</li>
+      <li>hover on box or use tab/shift-tab to select for labeling</li>
+    </ul>
+    <input id="export" type="button" value="Export"></input><strong>(REQUIRED TO SAVE)</strong>
+  </div>
+  <div id="controls">
+    <label for="datasets">Dataset:</label>
+    <select id="datasets">
+      <option disabled selected>Select dataset</option>
+    </select> <br />
+    <label for="batches">Batch:</label>
+    <select id="batches"></select> <br />
+    <label for="dateSelect">Date:</label>
+    <select id="dateSelect"></select> <br />
+    <label for="timeSelect">Time:</label>
+    <select id="timeSelect"> </select> <br />
+    <label for="dayNotes">Notes for day:</label>
+    <input id="dayNotes"> </input> <br />
+
+  </div>
+  <div id="export-modal" class="modal">
+    <div class="modal-content">
+      Are you sure you would like to export?
+      <div id="modal_unviewed">These days have not been viewed: <br></div>
+      <div id="unviewed_days"></div>
       <br>
-      <span id="mapper"></span>
+      <input id="continue_button" type="button" value="Continue"></input>
+      <input id="close_button" type="button" value="Close"></input>
+
     </div>
-    <!-- </div> -->
-    <div id="viewer">
-      <img id="img1"/> 
-      <svg id="svg1"/>
-      <img id="img2"/> 
-      <svg id="svg2"/>
+  </div>
+
+  <div id="filtering">
+    <strong>Track filtering</strong>:<br />
+    <ul>
+      <li>At least <input type="number" min="1" max="10" step="1" id="detections_min" value="2" /> detections</li>
+      <li>At least <input type="number" min="1" max="10" step="1" id="high_quality_detections_min" value="2" />
+        detections with
+        score at least <input type="number" min="-1" max="1" step="0.05" value="0.05" id="score_min" /></li>
+      <li>Average score at least <input type="number" min="-1" max="1" step="0.05" value="-1" id="avg_score_min" /></li>
+    </ul>
+  </div>
+  <div id="discount">
+    <strong>Range for DISCount</strong>:<br />
+    <label for="discountStartDateSelect">Start:</label>
+    <select id="discountStartDateSelect"> </select> <br />
+    <label for="discountEndDateSelect">End:</label>
+    <select id="discountEndDateSelect"> </select> <br />
+    <input id="discount_button" type="button" value="DISCount"></input>
+  </div>
+  <div id="labeltip" class="tooltip" style="visibility: hidden;">
+    <div id="labels">
     </div>
+    Notes: <br>
+    <input type="text" id="notes"></input>
+    <br>
+    <span id="mapper"></span>
+    <span id="delete_track"></span>
+  </div>
+
+  <br>
+  <div id="discountLink">
+    <input id="discountLinkButton" type="button" value="Open scan in normal mode"></input>
+  </div>
+
+
+  <div id="viewer"></div>
+  
+
+
 </body>
 
 <script type="module" src="./dist/demo.js"></script>

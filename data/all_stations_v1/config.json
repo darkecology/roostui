@@ -15,6 +15,10 @@
         "pattern": "data/%s/scans_%s.txt",
         "fields": ["dataset", "batch"]
     },
+    "discount" : {
+        "pattern": "data/%s/discount_%s.txt",
+        "fields": ["dataset", "batch"]
+    },
     "filtering" : {
         "detections_min" : 2,
         "high_quality_detections_min": 1,
