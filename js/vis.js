@@ -1,9 +1,12 @@
 import * as d3 from 'd3';
 import sprintf from 'sprintf';
-import $ from 'jquery'; 
-import { parse_day, parse_time, parse_scan, parse_datetime,
-		 get_urls, expand_pattern, obj2url, url2obj } from './utils.js';
+import $ from 'jquery';
+import { parse_day, parse_time, parse_scan,
+		 get_urls, obj2url, url2obj } from './utils.js';
 import { BoolList } from './BoolList.js';
+import { Box, Track, labels, defaultFilters,
+		 loadConfig, loadDataset, loadBatch,
+		 updateTracks, formatExport, unique } from './data.js';
 
 var UI = (function() {
 
@@ -43,21 +46,6 @@ var UI = (function() {
 	/* -----------------------------------------
 	 * UI globals
 	 * ---------------------------------------- */
-
-	var labels = ['non-roost',
-				  'swallow-roost',
-				  'weather-roost',
-				  'unknown-noise-roost',
-				  'AP-roost',
-				  'duplicate',
-				  'bad-track'];
-	
-	var default_filters = {
-		"detections_min" : 2,
-		"high_quality_detections_min" : 2,
-		"score_min" : 0.05,
-		"avg_score_min" : -1.0
-	};
 	
 	var keymap = {
 		'9':  next_box, // tab
@@ -77,186 +65,158 @@ var UI = (function() {
 	};
 
 	/* ---------------------------------------------------
-	 * Class definitions
+	 * Track UI management
 	 * -------------------------------------------------- */
 
-	/* -----------------------------------------
-	 * Box
-	 * ---------------------------------------- */
-	class Box {
-		constructor(obj) {
-			obj && Object.assign(this, obj);
+	var trackNodes = new Map();		// Map<trackId, Map<svgParent, gElement>>
+	var selectedTrack = null;		// Currently selected Track object
+	var unselectTimeout = null;		// Timeout handle for delayed unselect
 
-			this.setTrack( new Track({}));
+	function getTrackNodes(track) {
+		if (!trackNodes.has(track.id)) {
+			trackNodes.set(track.id, new Map());
+		}
+		return trackNodes.get(track.id);
+	}
+
+	function setTrackNode(track, node, svg) {
+		getTrackNodes(track).set(svg, node);
+	}
+
+	function selectTrack(track, node) {
+
+		// If this track is already selected, do nothing
+		if (selectedTrack && track == selectedTrack) {
+			window.clearTimeout(unselectTimeout);
+			return;
 		}
 
-		setTrack(t) {
-			this.track = t;
+		// If another track is selected, unselect it
+		if (selectedTrack) {
+			unselectTrack(selectedTrack);
+		}
+
+		// Now continue selecting this track
+		selectedTrack = track;
+
+		// Add selected attribute to bounding box elements
+		var nodes = getTrackNodes(track);
+		for (const n of nodes.values()) {
+			d3.select(n).classed("selected", true);
+		}
+
+		// Display tooltip
+		var tip = d3.select("#labeltip");
+
+		tip.on("mouseenter", () => selectTrack(track, node) )
+			.on("mouseleave", () => scheduleUnselectTrack(track) );
+
+		var bbox = d3.select(node).select("rect").node().getBoundingClientRect();
+
+		tip.style("visibility", "visible")
+			.style("left", (bbox.x + bbox.width + 18) + "px")
+			.style("top", bbox.y + (bbox.height/2) - 35+ "px");
+
+		// Create radio buttons and labels
+		var entering = tip.select("#labels").selectAll("span")
+			.data(labels)
+			.enter()
+			.append("span");
+
+		entering.append("input")
+			.attr("id", (d,i) => "label" + i)
+			.attr("type", "radio")
+			.attr("name", "label")
+			.attr("value", (d,i) => i);
+
+		entering.append("label")
+			.attr("for", (d,i) => "label" + i)
+			.text((d,i) => sprintf("(%d) %s", i+1, d));
+
+		entering.append("br");
+
+		// Select the correct radio button
+		tip.selectAll("input")
+			.property("checked", (d, i) => d===track.label)
+			.on("change", (e, d) => setTrackLabel(track, d));
+
+
+		// Enable keyboard shortcuts
+		var zero_code = 48; // keycode for 0
+		for(let i=0; i < labels.length; i++) {
+			keymap[zero_code + parseInt(i+1)] =
+				((label) => () => setTrackLabel(track, label))(labels[i]);
+		}
+
+		// Create mapper link
+		var box = d3.select(node).datum(); // the Box object
+		var link = tip.select("#mapper")
+			.html('<a href="#"> View on map</a>')
+			.on("click", () => mapper(box));
+
+		// Create notes box
+		var notes = tip.select("#notes");
+		notes.node().value = box.track.notes;
+		notes.on("change", () => save_notes(box));
+		notes.on("keydown", (e) => {
+			if (e.which == 13) notes.node().blur();
+		});
+	}
+
+	function scheduleUnselectTrack(track) {
+		unselectTimeout = window.setTimeout(() => unselectTrack(track), 250);
+	}
+
+	function sendTrackToBack(track) {
+		var nodes = getTrackNodes(track);
+		for (const n of nodes.values()) {
+			d3.select(n).lower();
 		}
 	}
-	
-	/* -----------------------------------------
-	 * Track
-	 * ---------------------------------------- */
-	class Track {
-		constructor(obj) {
-			obj && Object.assign(this, obj);
-			this.nodes = new Map();
+
+	function unselectTrack(track) {
+
+		// The track may have already been unselected. If so, return
+		if (selectedTrack !== track) {
+			return;
 		}
 
-		// Each SVG has a DOM element for the track
-		setNode(n, svg) {
-			this.nodes.set(svg, n);
+		// Remove selected class from elements
+		var nodes = getTrackNodes(track);
+		for (const n of nodes.values()) {
+			d3.select(n).classed("selected", false);
 		}
 
-		setSelected() {
-			Track.selectedTrack = this;
-		}
-		
-		// Called when a user hovers
-		//
-		//   node = the bounding box that was hovered
-		// 
-		select(node) {
+		// Disable tooltip
+		var tip = d3.select("#labeltip");
+		tip.style("visibility", "hidden");
 
-			// If this track is already selected, do nothing
-			if (Track.selectedTrack && this == Track.selectedTrack) {
-				window.clearTimeout(Track.unselectTimeout);
-				return;
-			}
-
-			// If another track is selected, unselect it
-			if (Track.selectedTrack) {
-				Track.selectedTrack.unselect();
-			}
-			
-			// Now continue selecting this track
-			Track.selectedTrack = this;
-			//console.log(Track.selectedTrack);
-
-			// Add selected attribute to bounding box elements
-			for (const node of this.nodes.values()) {
-				d3.select(node).classed("selected", true);
-			}
-
-			// Display tooltip
-			var tip = d3.select("#labeltip");
-			
-			tip.on("mouseenter", () => this.select(node) )
-				.on("mouseleave", () => this.scheduleUnselect() );
-				
-			var bbox = d3.select(node).select("rect").node().getBoundingClientRect();
-			//console.log(bbox);
-			
-			tip.style("visibility", "visible")
-				.style("left", (bbox.x + bbox.width + 18) + "px")
-				.style("top", bbox.y + (bbox.height/2) - 35+ "px");
-			
-			// Create radio buttons and labels
-			var entering = tip.select("#labels").selectAll("span")
-				.data(labels)
-				.enter()
-				.append("span");
-
-			entering.append("input")
-				.attr("id", (d,i) => "label" + i)
-				.attr("type", "radio")
-				.attr("name", "label")
-				.attr("value", (d,i) => i);
-				
-			entering.append("label")
-				.attr("for", (d,i) => "label" + i)
-				.text((d,i) => sprintf("(%d) %s", i+1, d));
-			
-			entering.append("br");
-
-			// Select the correct radio button
-			tip.selectAll("input")
-				.property("checked", (d, i) => d===this.label)
-				.on("change", (e, d) => this.setLabel(d));
-
-			
-			// Enable keyboard shortcuts
-			var zero_code = 48; // keycode for 0
-			for(let i=0; i < labels.length; i++) {
-				keymap[zero_code + parseInt(i+1)] =
-					((label) => () => this.setLabel(label))(labels[i]);
-			}
-			//keymap[9] = this.sendToBack; // tab: send to back
-
-			// Create mapper link
-			var box = d3.select(node).datum(); // the Box object
-			var link = tip.select("#mapper")
-				.html('<a href="#"> View on map</a>')
-				.on("click", () => mapper(box));
-
-			// Create notes box
-			var notes = tip.select("#notes");
-			notes.node().value = box.track.notes;
-			notes.on("change", () => save_notes(box));
-			notes.on("keydown", (e) => {
-				if (e.which == 13) notes.node().blur();
-			});
+		// Disable keyboard shortcuts
+		var zero_code = 48; // keycode for 0
+		for(let i=0; i < labels.length; i++) {
+			delete keymap[zero_code + parseInt(i+1)];
 		}
 
-		// Called when user unhovers to schedule unselection in 250ms
-		scheduleUnselect = e => {
-			Track.unselectTimeout = window.setTimeout(this.unselect, 250);
-		}
+		selectedTrack = null;
 
-		sendToBack = e => {
-			for (const node of this.nodes.values()) {
-				d3.select(node).lower();
-			}
-		}
-		
-		unselect = e => {
-
-			// The track may have already been unselected. If so, return
-			if (Track.selectedTrack !== this) {
-				return;
-			}
-
-			// Remove selected class from elements
-			for (const node of this.nodes.values()) {
-				d3.select(node).classed("selected", false);
-			}
-			
-			// Disable tooltip
-			var tip = d3.select("#labeltip");
-			tip.style("visibility", "hidden");
-			
-			// Disable keyboard shortcuts
-			var zero_code = 48; // keycode for 0
-			for(let i=0; i < labels.length; i++) {
-				delete keymap[zero_code + parseInt(i+1)];
-			}
-
-			Track.selectedTrack = null;
-
-		}
-
-		setLabel(label) {
-			let i = labels.indexOf(label);
-			d3.select("#label" + i).node().checked = true;
-			this.label = label;
-			this.user_labeled = true;
-			
-			for (const node of this.nodes.values()) {
-				d3.select(node).classed("filtered", this.label !== 'swallow-roost');
-			}
-			
-			// Send to back after setting label?
-			// this.sendToBack();
-			
-			// Warn before closing window
-			window.onbeforeunload = function() {
-				return true;
-			};
-		}
 	}
-	Track.selectedTrack = null;
-	Track.unselectTimeout = null;
+
+	function setTrackLabel(track, label) {
+		let i = labels.indexOf(label);
+		d3.select("#label" + i).node().checked = true;
+		track.label = label;
+		track.user_labeled = true;
+
+		var nodes = getTrackNodes(track);
+		for (const n of nodes.values()) {
+			d3.select(n).classed("filtered", track.label !== 'swallow-roost');
+		}
+
+		// Warn before closing window
+		window.onbeforeunload = function() {
+			return true;
+		};
+	}
 
 	/* -----------------------------------------
 	 * UI
@@ -284,7 +244,7 @@ var UI = (function() {
 			.text(d => d);
 		
 		datasets.on("change", change_dataset);
-		Object.assign(filters, default_filters);
+		Object.assign(filters, defaultFilters);
 		render_filters();
 		
 		let url_nav = url2obj(window.location.hash.substring(1));
@@ -307,10 +267,6 @@ var UI = (function() {
 		}
 	}
 
-	function unique(a) {
-		return [...new Set(a)];
-	}
-	
 	function save_notes(box)
 	{
 		box.track.notes = document.getElementById('notes').value;
@@ -328,7 +284,13 @@ var UI = (function() {
 	}
 
 	function change_filter(d, i, nodes) {
-		update_tracks();
+		let filterSettings = {
+			score_min: +d3.select("#score_min").node().value,
+			detections_min: +d3.select("#detections_min").node().value,
+			high_quality_detections_min: +d3.select("#high_quality_detections_min").node().value,
+			avg_score_min: +d3.select("#avg_score_min").node().value
+		};
+		updateTracks(boxes, tracks, filterSettings);
 		render_frame();
 	}
 
@@ -360,12 +322,12 @@ var UI = (function() {
 		render_dataset();		
 	}
 	
-	function render_dataset() {
+	async function render_dataset() {
 		// If work needs saving, check if user wants to proceed
 		if (window.onbeforeunload &&
 			! window.confirm("Change dataset? You made changes but did not export data."))
 		{
-				return; 
+				return;
 		}
 		window.onbeforeunload = null;
 
@@ -374,41 +336,31 @@ var UI = (function() {
 
 			d3.select('#datasets').node().value = dataset;
 
-			function handle_config(_config) {
-				dataset_config = _config;
-				if ("filtering" in dataset_config) {
-					Object.assign(filters, dataset_config["filtering"]);
-				}
-				else {
-					Object.assign(filters, default_filters);
-				}
-				render_filters();
+			let result = await loadDataset(dataset);
+
+			dataset_config = result.datasetConfig;
+			if ("filtering" in dataset_config) {
+				Object.assign(filters, dataset_config["filtering"]);
+			}
+			else {
+				Object.assign(filters, defaultFilters);
+			}
+			render_filters();
+
+			var batchesSelect = d3.select('#batches');
+			var options = batchesSelect.selectAll("option")
+				.data(result.batches)
+				.join("option")
+				.text(d => d);
+			batchesSelect.on("change", change_batch);
+
+			// If the batch nav is not set already, use the selected value
+			// from the dropdown list
+			if (! nav.batch) {
+				nav.batch = batchesSelect.node().value;
 			}
 
-			function handle_batches(batch_list)
-			{
-				batch_list = batch_list.trim().split("\n");			
-				var batches = d3.select('#batches');		
-				var options = batches.selectAll("option")
-					.data(batch_list)
-					.join("option")
-					.text(d => d);
-				batches.on("change", change_batch);
-
-				// If the batch nav is not set already, used the selected value
-				// from the dropdown list
-				if (! nav.batch) {
-					nav.batch = batches.node().value;
-				}
-			}
-			
-			var batchFile = sprintf("data/%s/batches.txt", dataset);		
-			var dataset_config_file = sprintf("data/%s/config.json", dataset);
-			
-			Promise.all([
-				d3.text(batchFile).then(handle_batches),
-				d3.json(dataset_config_file).then(handle_config)
-			]).then( render_batch );
+			render_batch();
 		}
 	}
 	
@@ -428,198 +380,64 @@ var UI = (function() {
 		render_batch();
 	}
 
-	function render_batch() {
+	async function render_batch() {
 
 		if (window.onbeforeunload &&
 			! window.confirm("Change batches? You made changes but did not export data."))
 		{
-			return; 
+			return;
 		}
 		window.onbeforeunload = null;
 
 		if (nav.batch) {
 
 			d3.select('#batches').node().value = nav.batch;
-			
-			var csv_file = expand_pattern(dataset_config["boxes"], nav);
-			var scans_file = expand_pattern(dataset_config["scans"], nav);
 
-			function preprocess_scan(d) {
-				d.local_date = parse_datetime(d.local_time)['date'];
-				return d;
-			}
-			
-			function handle_scans(_scans) {
-				scans = _scans;
-				// filter scan list to current batch if specified in dataset_config
-				if ("filter" in dataset_config["scans"])
-				{
-					scans = scans.filter( 
-						d => expand_pattern(dataset_config["scans"]["filter"], parse_scan(d.filename)) == nav.batch
-					);
-				}
+			let result = await loadBatch(dataset_config, nav);
+			scans = result.scans;
+			boxes = result.boxes;
+			boxes_by_day = result.boxesByDay;
+			tracks = result.tracks;
+			day_notes = result.dayNotes;
 
-				// group scans by local_date
-				scans = d3.group(scans, (d) => d.local_date);
-			}
+			// Clear track DOM nodes for new batch
+			trackNodes = new Map();
 
-			// convert a row of the csv file into Box object
-			function row2box(d) {
-				let info = parse_scan(d.filename);
-				d.station = info['station'];
-				d.date = info['date'];
-				d.time = info['time'];
-				if("swap" in dataset_config && dataset_config["swap"]){
-					let tmp = d.y;
-					d.y = d.x;
-					d.x = tmp;
+			// Update tracks based on current filter settings
+			change_filter();
+
+			enable_filtering();
+
+			days = new BoolList(scans.keys(), boxes_by_day.keys());
+
+			// Add day note entries for days without boxes
+			for (let day of days.items) {
+				if (!day_notes.has(day)) {
+					day_notes.set(day, '');
 				}
-				d.local_date = parse_datetime(d.local_time)['date'];
-				if(d.track_id.length < 13){
-					d.track_id = d.station + d.local_date + '-' + d.track_id;
-				}
-				return new Box(d);
 			}
 
-			function sum_non_neg_values(boxes) {
-				let sum = 0;
-				let n_values = 0;
-				for (let box of boxes) {
-					if (box.det_score >= 0) {
-						sum += parseFloat(box.det_score);
-						n_values += 1;
-					}
-				}
-				let avg = sum / n_values
-				return {'sum': sum, 'avg': avg};
-			}
+			var dateSelect = d3.select("#dateSelect");
+			var options = dateSelect.selectAll("option")
+				.data(days.items);
 
-			// Load boxes and create tracks when new batch is selected
-			function handle_boxes(_boxes) {		
-				boxes = _boxes;
-				boxes_by_day = d3.group(boxes, d => d.local_date);
+			options.enter()
+				.append("option")
+				.merge(options)
+				.attr("value", (d,i) => i)
+				.text(function(d, i) {
+					var str = parse_day(d);
+					return days.isTrue(i) ? str : "(" + str + ")";
+				});
 
-				let summarizer = function(v) { // v is the list of boxes for one track
-					let scores = sum_non_neg_values(v);
-					let viewed = false;
-					let user_labeled = false;
-					let label = null;
-					let original_label = null;
-					let notes = "";
-					if (v[0].viewed != null) {
-						viewed = v[0].viewed;
-						user_labeled = v[0].user_labeled;
-						label = v[0].label;
-						original_label = v[0].original_label;
-						notes = v[0].notes;
-					}
-					return new Track({
-						id: v[0].track_id,
-						date: v[0].date,
-						length: v.length,
-						tot_score: scores['sum'],
-						avg_score: scores['avg'],
-						viewed: viewed,
-						user_labeled: user_labeled,
-						label: label,
-						original_label: original_label,
-						notes: notes,
-						boxes: v
-					});
-				};
-				
-				tracks = d3.rollup(boxes, summarizer, d => d.track_id);
+			options.exit().remove();
 
-				// Link boxes to their tracks
-				for (var box of boxes) {
-					box.track = tracks.get(box.track_id);
-				}
-				update_tracks(); // add attributes that depend on user input
-			}
-			
-			// Load scans and boxes
-			Promise.all([
-				d3.csv(scans_file, preprocess_scan).then(handle_scans),
-				d3.csv(csv_file, row2box).then(handle_boxes)
-			]).then( () => {
+			dateSelect.on("change", change_day);
 
-				enable_filtering();
-				
-				days = new BoolList(scans.keys(), boxes_by_day.keys());
-						// scans were grouped by local_dates, scans.keys() are local_dates
-
-				// Initialize notes
-				day_notes = new Map();
-				for (let day of days.items) {
-					day_notes.set(day, ''); // local_date
-				}
-				for (let box of boxes) {
-					if (box['day_notes'] != null) {
-						day_notes.set(box['local_date'], box['day_notes'])
-					}
-				}
-				
-				var dateSelect = d3.select("#dateSelect");
-				var options = dateSelect.selectAll("option")
-					.data(days.items);
-
-				options.enter()
-					.append("option")
-					.merge(options)
-					.attr("value", (d,i) => i)
-					.text(function(d, i) {
-						var str = parse_day(d);
-						return days.isTrue(i) ? str : "(" + str + ")";
-					});
-
-				options.exit().remove();
-				
-				dateSelect.on("change", change_day);
-
-				render_day();
-			});
+			render_day();
 		}
 	}
 
-	// Compute track attributes that depend on user input
-	function update_tracks() {
-
-		let score_min = +d3.select("#score_min").node().value;
-
-		let summarizer = function(v) { // v is the list of boxes for one track
-			let n_high_quality = v.filter(d => d.det_score >= score_min).length;
-			return n_high_quality;
-		};
-		
-		let n_high_quality = d3.rollup(boxes, summarizer, d => d.track_id);
-
-		// Default labeling based on user filtering
-		let detections_min = +d3.select("#detections_min").node().value;
-		let high_quality_detections_min = +d3.select("#high_quality_detections_min").node().value;
-		let avg_score_min = +d3.select("#avg_score_min").node().value;
-		
-		for (let [id, t] of tracks) {
-
-			if (t.user_labeled)
-			{
-				continue;		// don't override a user-entered label
-			}
-
-			// Automatic labeling based on filtered rools 
-			if (t.length < detections_min ||
-				n_high_quality.get(id) < high_quality_detections_min ||
-				t.avg_score < avg_score_min )
-			{
-				t.label = 'non-roost';
-			}
-			else
-			{
-				t.label = 'swallow-roost';
-			}
-
-			t.original_label = t.label;
-		}
-	}
 
 	
 	/* -----------------------------------------
@@ -748,17 +566,17 @@ var UI = (function() {
 	{
 		if(!days) return;
 
-		if (Track.selectedTrack) {
-			Track.selectedTrack.unselect();
+		if (selectedTrack) {
+			unselectTrack(selectedTrack);
 		}
 
-		var day = days.currentItem;		
+		var day = days.currentItem;
 
 		frames.currentInd = nav.frame;
 		d3.select("#timeSelect").property("value", frames.currentInd);
-				
+
 		var scan = frames.currentItem;
-		
+
 		var urls = get_urls(scan.filename, nav["dataset"], dataset_config);
 		d3.select("#img1").attr("src", urls[0]);
 		d3.select("#img2").attr("src", urls[1]);
@@ -766,10 +584,10 @@ var UI = (function() {
 		let boxes_for_day = boxes_by_day.has(day) ? boxes_by_day.get(day) : [];
 		let boxes_for_scan = boxes_for_day.filter(d => d.filename.trim() == scan.filename.trim());
 		active_tracks = boxes_for_scan.map(b => tracks.get(b.track_id));
-		
+
 		let track_ids = boxes_for_day.map((d) => d.track_id);
 		track_ids = unique(track_ids);
-		
+
 		// Create color map from track_ids to ordinal color scale
 		var myColor = d3.scaleOrdinal().domain(track_ids)
 			.range(d3.schemeSet1);
@@ -779,7 +597,7 @@ var UI = (function() {
 			.data(boxes_for_scan, (d) => d.track_id);
 
 		groups.exit().remove();
-		
+
 		// For entering groups, create elements
 		var entering = groups.enter()
 			.append("g")
@@ -789,18 +607,18 @@ var UI = (function() {
 
 		// Register each new DOM element with the track and mark the track as viewed
 		entering.each( function(d) {
-			d.track.setNode(this, this.parentNode);
+			setTrackNode(d.track, this, this.parentNode);
 			d.track.viewed = true;
 		});
-		
+
 		// Merge existing groups with entering ones
 		groups = entering.merge(groups);
-		
+
 		// Set handlers for group
 		groups.classed("filtered", (d) => d.track.label !== 'swallow-roost')
-			.on("mouseenter", function (e,d) { d.track.select(this); } )
-			.on("mouseleave", (e,d) => d.track.scheduleUnselect() );
-		
+			.on("mouseenter", function (e,d) { selectTrack(d.track, this); } )
+			.on("mouseleave", (e,d) => scheduleUnselectTrack(d.track) );
+
 		// Set attributes for boxes
 		groups.select("rect")
 		 	.attr("x", b => b.x - scale*b.r)
@@ -817,8 +635,8 @@ var UI = (function() {
 			.attr("y", b => b.y - scale*b.r - 5)
 		 	.text(b => b.track_id.split('-').pop() + ": " + b.det_score);
 
-		groups.on("click", (e,d) => d.track.setLabel("non-roost"));
-		
+		groups.on("click", (e,d) => setTrackLabel(d.track, "non-roost"));
+
 		var url = window.location.href.replace(window.location.hash,"");
 		history.replaceState({}, "", url + "#" + obj2url(nav));
 
@@ -834,9 +652,9 @@ var UI = (function() {
 		let track_idx;
 
 		// If a track is currently selected, go to previous index, else go to last track
-		if (Track.selectedTrack) {
-			track_idx = active_tracks.indexOf(Track.selectedTrack);
-			Track.selectedTrack.unselect();
+		if (selectedTrack) {
+			track_idx = active_tracks.indexOf(selectedTrack);
+			unselectTrack(selectedTrack);
 			track_idx--;
 		}
 		else {
@@ -846,8 +664,9 @@ var UI = (function() {
 		// Select the track
 		if (track_idx >= 0) {
 			let track = active_tracks[track_idx];
-			let node = track.nodes.values().next().value;
-			track.select(node);
+			let nodes = getTrackNodes(track);
+			let node = nodes.values().next().value;
+			selectTrack(track, node);
 		}
 	}
 
@@ -859,9 +678,9 @@ var UI = (function() {
 		let track_idx;
 
 		// If a track is currently selected, go to next index, else go to first track
-		if (Track.selectedTrack) {
-			track_idx = active_tracks.indexOf(Track.selectedTrack);
-			Track.selectedTrack.unselect();
+		if (selectedTrack) {
+			track_idx = active_tracks.indexOf(selectedTrack);
+			unselectTrack(selectedTrack);
 			track_idx++;
 		}
 		else {
@@ -871,14 +690,15 @@ var UI = (function() {
 		// Select the track
 		if (track_idx < active_tracks.length) {
 			let track = active_tracks[track_idx];
-			let node = track.nodes.values().next().value;
-			track.select(node);
+			let nodes = getTrackNodes(track);
+			let node = nodes.values().next().value;
+			selectTrack(track, node);
 		}
 	}
-	
+
 	function unselect_box() {
-		if (Track.selectedTrack)
-			Track.selectedTrack.unselect();
+		if (selectedTrack)
+			unselectTrack(selectedTrack);
 	}
 
 	
@@ -888,41 +708,16 @@ var UI = (function() {
 	
 	function export_sequences() {
 
-		// Determine column names associated with different entities (box, track, day)
-		let track_cols = ["length", "tot_score", "avg_score", "viewed", "user_labeled", "label", "original_label", "notes"];
-		let day_cols = ["day_notes"];
+		let result = formatExport(boxes, tracks, day_notes);
 
-		// Columns associated with boxes are all other columns
-		let box_cols = Object.keys(boxes[0]);
-		let exclude_cols = [...track_cols, ...day_cols, "track"];
-		box_cols = box_cols.filter( val => exclude_cols.indexOf(val) === -1);		
-									 
-		// Assign track attributes to each box
-		for (let box of boxes) {
-			var track = tracks.get(box.track_id);
-			for (var col of track_cols) {
-				box[col] = track[col];
-			}
-		}
-
-		// Assign day notes to box
-		for (let box of boxes) {
-			box['day_notes'] = day_notes.get(box['local_date']);
-		}
-
-		// This is the list of output columns
-		let cols = box_cols.concat(track_cols).concat(day_cols);
-		
-		let dataStr = d3.csvFormat(boxes, cols);
-		let dataUri = 'data:text/csv;charset=utf-8,'+ encodeURIComponent(dataStr);
-		
+		let dataUri = 'data:text/csv;charset=utf-8,'+ encodeURIComponent(result.csv);
 		let filename = sprintf("roost_labels_%s.csv", $("#batches").val());
 
 		let linkElement = document.createElement('a');
 		linkElement.setAttribute('href', dataUri);
 		linkElement.setAttribute('download', filename);
 		linkElement.click();
-		
+
 		// Remove warning about export
 		window.onbeforeunload = null;
 	}
@@ -931,4 +726,4 @@ var UI = (function() {
 }());
 
 
-d3.json('data/config.json').then(UI.handle_config).then(UI.init);
+loadConfig().then(UI.handle_config).then(UI.init);
