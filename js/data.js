@@ -1,5 +1,4 @@
 import * as d3 from 'd3';
-import sprintf from 'sprintf';
 import { parse_datetime, parse_scan, expand_pattern } from './utils.js';
 
 /* -----------------------------------------
@@ -94,8 +93,8 @@ export async function loadConfig() {
 }
 
 export async function loadDataset(datasetName) {
-	var batchFile = sprintf("data/%s/batches.txt", datasetName);
-	var configFile = sprintf("data/%s/config.json", datasetName);
+	var batchFile = `data/${datasetName}/batches.txt`;
+	var configFile = `data/${datasetName}/config.json`;
 
 	let [batchText, datasetConfig] = await Promise.all([
 		d3.text(batchFile),

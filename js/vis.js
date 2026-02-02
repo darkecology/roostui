@@ -1,6 +1,4 @@
 import * as d3 from 'd3';
-import sprintf from 'sprintf';
-import $ from 'jquery';
 import { parse_day, parse_time, parse_scan,
 		 get_urls, obj2url, url2obj } from './utils.js';
 import { BoolList } from './BoolList.js';
@@ -102,23 +100,23 @@ var UI = (function() {
 		// Add selected attribute to bounding box elements
 		var nodes = getTrackNodes(track);
 		for (const n of nodes.values()) {
-			d3.select(n).classed("selected", true);
+			n.classList.add("selected");
 		}
 
 		// Display tooltip
-		var tip = d3.select("#labeltip");
+		var tip = document.getElementById("labeltip");
 
-		tip.on("mouseenter", () => selectTrack(track, node) )
-			.on("mouseleave", () => scheduleUnselectTrack(track) );
+		tip.onmouseenter = () => selectTrack(track, node);
+		tip.onmouseleave = () => scheduleUnselectTrack(track);
 
-		var bbox = d3.select(node).select("rect").node().getBoundingClientRect();
+		var bbox = node.querySelector("rect").getBoundingClientRect();
 
-		tip.style("visibility", "visible")
-			.style("left", (bbox.x + bbox.width + 18) + "px")
-			.style("top", bbox.y + (bbox.height/2) - 35+ "px");
+		tip.style.visibility = "visible";
+		tip.style.left = (bbox.x + bbox.width + 18) + "px";
+		tip.style.top = bbox.y + (bbox.height/2) - 35 + "px";
 
-		// Create radio buttons and labels
-		var entering = tip.select("#labels").selectAll("span")
+		// Create radio buttons and labels (enter-only d3 join)
+		var entering = d3.select("#labels").selectAll("span")
 			.data(labels)
 			.enter()
 			.append("span");
@@ -131,12 +129,12 @@ var UI = (function() {
 
 		entering.append("label")
 			.attr("for", (d,i) => "label" + i)
-			.text((d,i) => sprintf("(%d) %s", i+1, d));
+			.text((d,i) => `(${i+1}) ${d}`);
 
 		entering.append("br");
 
 		// Select the correct radio button
-		tip.selectAll("input")
+		d3.select("#labels").selectAll("input")
 			.property("checked", (d, i) => d===track.label)
 			.on("change", (e, d) => setTrackLabel(track, d));
 
@@ -149,18 +147,18 @@ var UI = (function() {
 		}
 
 		// Create mapper link
-		var box = d3.select(node).datum(); // the Box object
-		var link = tip.select("#mapper")
-			.html('<a href="#"> View on map</a>')
-			.on("click", () => mapper(box));
+		var box = node.__data__; // the Box object (d3 stores bound data here)
+		var mapperEl = document.getElementById("mapper");
+		mapperEl.innerHTML = '<a href="#"> View on map</a>';
+		mapperEl.onclick = () => mapper(box);
 
 		// Create notes box
-		var notes = tip.select("#notes");
-		notes.node().value = box.track.notes;
-		notes.on("change", () => save_notes(box));
-		notes.on("keydown", (e) => {
-			if (e.which == 13) notes.node().blur();
-		});
+		var notesEl = document.getElementById("notes");
+		notesEl.value = box.track.notes;
+		notesEl.onchange = () => save_notes(box);
+		notesEl.onkeydown = (e) => {
+			if (e.which == 13) notesEl.blur();
+		};
 	}
 
 	function scheduleUnselectTrack(track) {
@@ -170,7 +168,7 @@ var UI = (function() {
 	function sendTrackToBack(track) {
 		var nodes = getTrackNodes(track);
 		for (const n of nodes.values()) {
-			d3.select(n).lower();
+			n.parentNode.prepend(n);
 		}
 	}
 
@@ -184,12 +182,11 @@ var UI = (function() {
 		// Remove selected class from elements
 		var nodes = getTrackNodes(track);
 		for (const n of nodes.values()) {
-			d3.select(n).classed("selected", false);
+			n.classList.remove("selected");
 		}
 
 		// Disable tooltip
-		var tip = d3.select("#labeltip");
-		tip.style("visibility", "hidden");
+		document.getElementById("labeltip").style.visibility = "hidden";
 
 		// Disable keyboard shortcuts
 		var zero_code = 48; // keycode for 0
@@ -203,13 +200,13 @@ var UI = (function() {
 
 	function setTrackLabel(track, label) {
 		let i = labels.indexOf(label);
-		d3.select("#label" + i).node().checked = true;
+		document.getElementById("label" + i).checked = true;
 		track.label = label;
 		track.user_labeled = true;
 
 		var nodes = getTrackNodes(track);
 		for (const n of nodes.values()) {
-			d3.select(n).classed("filtered", track.label !== 'swallow-roost');
+			n.classList.toggle("filtered", track.label !== 'swallow-roost');
 		}
 
 		// Warn before closing window
@@ -230,10 +227,9 @@ var UI = (function() {
 	{
 		svgs = d3.selectAll("#svg1, #svg2");
 				
-		// Populate data and set event handlers	
-		d3.select("#export").on("click", export_sequences);
-		d3.select("#notes-save").on("click", save_notes);
-		d3.select('body').on('keydown', handle_keydown);
+		// Populate data and set event handlers
+		document.getElementById("export").addEventListener("click", export_sequences);
+		document.body.addEventListener("keydown", handle_keydown);
 
 		// Populate datasets
 		var datasets = d3.select('#datasets');
@@ -243,7 +239,7 @@ var UI = (function() {
 			.append("option")
 			.text(d => d);
 		
-		datasets.on("change", change_dataset);
+		datasets.node().addEventListener("change", change_dataset);
 		Object.assign(filters, defaultFilters);
 		render_filters();
 		
@@ -254,7 +250,7 @@ var UI = (function() {
 
 
 	function handle_keydown(e) {
-		var tagName = d3.select(e.target).node().tagName;
+		var tagName = e.target.tagName;
 		if (tagName == 'INPUT' || tagName == 'SELECT' || tagName == 'TEXTAREA') {
 			return;
 		}
@@ -279,16 +275,17 @@ var UI = (function() {
 	 * ---------------------------------------- */
 
 	function enable_filtering() {
-		d3.selectAll("#detections_min, #high_quality_detections_min, #score_min, #avg_score_min")
-			.on("change", change_filter);
+		for (let id of ["detections_min", "high_quality_detections_min", "score_min", "avg_score_min"]) {
+			document.getElementById(id).addEventListener("change", change_filter);
+		}
 	}
 
-	function change_filter(d, i, nodes) {
+	function change_filter() {
 		let filterSettings = {
-			score_min: +d3.select("#score_min").node().value,
-			detections_min: +d3.select("#detections_min").node().value,
-			high_quality_detections_min: +d3.select("#high_quality_detections_min").node().value,
-			avg_score_min: +d3.select("#avg_score_min").node().value
+			score_min: +document.getElementById("score_min").value,
+			detections_min: +document.getElementById("detections_min").value,
+			high_quality_detections_min: +document.getElementById("high_quality_detections_min").value,
+			avg_score_min: +document.getElementById("avg_score_min").value
 		};
 		updateTracks(boxes, tracks, filterSettings);
 		render_frame();
@@ -311,7 +308,7 @@ var UI = (function() {
 	
 	function change_dataset() {
 
-		let datasets = d3.select('#datasets').node();
+		let datasets = document.getElementById('datasets');
 		datasets.blur();
 		
 		nav.dataset = datasets.value;
@@ -334,7 +331,7 @@ var UI = (function() {
 		let dataset = nav.dataset;
 		if (dataset) {
 
-			d3.select('#datasets').node().value = dataset;
+			document.getElementById('datasets').value = dataset;
 
 			let result = await loadDataset(dataset);
 
@@ -352,12 +349,12 @@ var UI = (function() {
 				.data(result.batches)
 				.join("option")
 				.text(d => d);
-			batchesSelect.on("change", change_batch);
+			batchesSelect.node().addEventListener("change", change_batch);
 
 			// If the batch nav is not set already, use the selected value
 			// from the dropdown list
 			if (! nav.batch) {
-				nav.batch = batchesSelect.node().value;
+				nav.batch = document.getElementById('batches').value;
 			}
 
 			render_batch();
@@ -370,7 +367,7 @@ var UI = (function() {
 	 * ---------------------------------------- */
 
 	function change_batch() {
-		let batches = d3.select('#batches').node();
+		let batches = document.getElementById('batches');
 		batches.blur();
 		
 		nav.batch = batches.value;
@@ -391,7 +388,7 @@ var UI = (function() {
 
 		if (nav.batch) {
 
-			d3.select('#batches').node().value = nav.batch;
+			document.getElementById('batches').value = nav.batch;
 
 			let result = await loadBatch(dataset_config, nav);
 			scans = result.scans;
@@ -432,7 +429,7 @@ var UI = (function() {
 
 			options.exit().remove();
 
-			dateSelect.on("change", change_day);
+			dateSelect.node().addEventListener("change", change_day);
 
 			render_day();
 		}
@@ -445,7 +442,7 @@ var UI = (function() {
 	 * ---------------------------------------- */
 
 	function change_day() {
-		let n = d3.select("#dateSelect").node();
+		let n = document.getElementById("dateSelect");
 		n.blur();
 		nav.day = n.value;
 		days.currentInd = n.value;
@@ -479,17 +476,17 @@ var UI = (function() {
 		if(!days) return;
 
 		days.currentInd = nav.day;
-		d3.select("#dateSelect").property("value", days.currentInd);
-		
+		document.getElementById("dateSelect").value = days.currentInd;
+
 		var day_key = days.currentItem; // string representation of date
 
 		// Populate day notes set up handlers
-		var notes = d3.select("#dayNotes");
-		notes.node().value = day_notes.get(day_key);
-		notes.on("change", () => save_day_notes());
-		notes.on("keydown", (e) => {
-			if (e.which == 13) notes.node().blur();
-		});
+		var notesEl = document.getElementById("dayNotes");
+		notesEl.value = day_notes.get(day_key);
+		notesEl.onchange = () => save_day_notes();
+		notesEl.onkeydown = (e) => {
+			if (e.which == 13) notesEl.blur();
+		};
 
 		// 
 		var allframes = scans.get(day_key); // list of scans
@@ -513,19 +510,19 @@ var UI = (function() {
 
 		options.exit().remove();
 		
-		timeSelect.on("change", () => {
-			var n = timeSelect.node();
+		timeSelect.node().onchange = () => {
+			var n = document.getElementById("timeSelect");
 			n.blur();
 			frames.currentInd = n.value;
 			update_nav_then_render_frame();
-		});
+		};
 		
 		render_frame();
 	}
 
 	function save_day_notes() {
 		let key = days.currentItem; // string representation of date
-		let value = d3.select("#dayNotes").node().value;
+		let value = document.getElementById("dayNotes").value;
 		day_notes.set(key, value);
 	}
 
@@ -573,13 +570,13 @@ var UI = (function() {
 		var day = days.currentItem;
 
 		frames.currentInd = nav.frame;
-		d3.select("#timeSelect").property("value", frames.currentInd);
+		document.getElementById("timeSelect").value = frames.currentInd;
 
 		var scan = frames.currentItem;
 
 		var urls = get_urls(scan.filename, nav["dataset"], dataset_config);
-		d3.select("#img1").attr("src", urls[0]);
-		d3.select("#img2").attr("src", urls[1]);
+		document.getElementById("img1").src = urls[0];
+		document.getElementById("img2").src = urls[1];
 
 		let boxes_for_day = boxes_by_day.has(day) ? boxes_by_day.get(day) : [];
 		let boxes_for_scan = boxes_for_day.filter(d => d.filename.trim() == scan.filename.trim());
@@ -711,7 +708,7 @@ var UI = (function() {
 		let result = formatExport(boxes, tracks, day_notes);
 
 		let dataUri = 'data:text/csv;charset=utf-8,'+ encodeURIComponent(result.csv);
-		let filename = sprintf("roost_labels_%s.csv", $("#batches").val());
+		let filename = `roost_labels_${document.getElementById("batches").value}.csv`;
 
 		let linkElement = document.createElement('a');
 		linkElement.setAttribute('href', dataUri);
