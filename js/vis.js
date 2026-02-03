@@ -5,6 +5,7 @@ import { BoolList } from './BoolList.js';
 import { Box, Track, labels, defaultFilters,
 		 loadConfig, loadDataset, loadBatch,
 		 updateTracks, formatExport, unique } from './data.js';
+import { RoostViewer } from './RoostViewer.js';
 
 var UI = (function() {
 
@@ -13,7 +14,7 @@ var UI = (function() {
 	/* -----------------------------------------
 	 * UI state variables
 	 * ---------------------------------------- */
-	
+
 	var days;					// BoolList of dates
 	var frames;					// BoolList of frames for current day
 
@@ -25,12 +26,12 @@ var UI = (function() {
 	var active_tracks;			// boxes active in current frame
 
 	var day_notes;              // map from a local date to notes for that local date
-		
-	var svgs;					// Top-level svg elements
+
+	var viewer = null;			// RoostViewer instance
 
 	var config;                 // UI config
 	var dataset_config;         // Dataset config
-	
+
 	var nav = {					// Navigation state
 		"dataset" : "",
 		"batch": "",
@@ -40,11 +41,11 @@ var UI = (function() {
 
 	var filters = {};			// Current filters
 
-	
+
 	/* -----------------------------------------
 	 * UI globals
 	 * ---------------------------------------- */
-	
+
 	var keymap = {
 		'9':  next_box, // tab
 		'27': unselect_box, // esc
@@ -66,22 +67,10 @@ var UI = (function() {
 	 * Track UI management
 	 * -------------------------------------------------- */
 
-	var trackNodes = new Map();		// Map<trackId, Map<svgParent, gElement>>
 	var selectedTrack = null;		// Currently selected Track object
 	var unselectTimeout = null;		// Timeout handle for delayed unselect
 
-	function getTrackNodes(track) {
-		if (!trackNodes.has(track.id)) {
-			trackNodes.set(track.id, new Map());
-		}
-		return trackNodes.get(track.id);
-	}
-
-	function setTrackNode(track, node, svg) {
-		getTrackNodes(track).set(svg, node);
-	}
-
-	function selectTrack(track, node) {
+	function selectTrack(track, rect) {
 
 		// If this track is already selected, do nothing
 		if (selectedTrack && track == selectedTrack) {
@@ -97,23 +86,18 @@ var UI = (function() {
 		// Now continue selecting this track
 		selectedTrack = track;
 
-		// Add selected attribute to bounding box elements
-		var nodes = getTrackNodes(track);
-		for (const n of nodes.values()) {
-			n.classList.add("selected");
-		}
+		// Tell viewer to highlight this track
+		viewer.update({ selectedTrackId: track.id });
 
 		// Display tooltip
 		var tip = document.getElementById("labeltip");
 
-		tip.onmouseenter = () => selectTrack(track, node);
+		tip.onmouseenter = () => selectTrack(track, rect);
 		tip.onmouseleave = () => scheduleUnselectTrack(track);
 
-		var bbox = node.querySelector("rect").getBoundingClientRect();
-
 		tip.style.visibility = "visible";
-		tip.style.left = (bbox.x + bbox.width + 18) + "px";
-		tip.style.top = bbox.y + (bbox.height/2) - 35 + "px";
+		tip.style.left = (rect.x + rect.width + 18) + "px";
+		tip.style.top = rect.y + (rect.height/2) - 35 + "px";
 
 		// Create radio buttons and labels (enter-only d3 join)
 		var entering = d3.select("#labels").selectAll("span")
@@ -146,30 +130,43 @@ var UI = (function() {
 				((label) => () => setTrackLabel(track, label))(labels[i]);
 		}
 
+		// Find the box for this track in the current frame
+		var box = findBoxForTrack(track);
+
 		// Create mapper link
-		var box = node.__data__; // the Box object (d3 stores bound data here)
 		var mapperEl = document.getElementById("mapper");
-		mapperEl.innerHTML = '<a href="#"> View on map</a>';
-		mapperEl.onclick = () => mapper(box);
+		if (box) {
+			mapperEl.innerHTML = '<a href="#"> View on map</a>';
+			mapperEl.onclick = () => mapper(box);
+		} else {
+			mapperEl.innerHTML = '';
+		}
 
 		// Create notes box
 		var notesEl = document.getElementById("notes");
-		notesEl.value = box.track.notes;
-		notesEl.onchange = () => save_notes(box);
+		notesEl.value = track.notes;
+		notesEl.onchange = () => { track.notes = notesEl.value; track.user_labeled = true; };
 		notesEl.onkeydown = (e) => {
 			if (e.which == 13) notesEl.blur();
 		};
 	}
 
-	function scheduleUnselectTrack(track) {
-		unselectTimeout = window.setTimeout(() => unselectTrack(track), 250);
+	function findBoxForTrack(track) {
+		if (!frames) return null;
+		var scan = frames.currentItem;
+		if (!scan) return null;
+		var day = days.currentItem;
+		var boxes_for_day = boxes_by_day.has(day) ? boxes_by_day.get(day) : [];
+		for (var b of boxes_for_day) {
+			if (b.track_id === track.id && b.filename.trim() === scan.filename.trim()) {
+				return b;
+			}
+		}
+		return null;
 	}
 
-	function sendTrackToBack(track) {
-		var nodes = getTrackNodes(track);
-		for (const n of nodes.values()) {
-			n.parentNode.prepend(n);
-		}
+	function scheduleUnselectTrack(track) {
+		unselectTimeout = window.setTimeout(() => unselectTrack(track), 250);
 	}
 
 	function unselectTrack(track) {
@@ -179,11 +176,8 @@ var UI = (function() {
 			return;
 		}
 
-		// Remove selected class from elements
-		var nodes = getTrackNodes(track);
-		for (const n of nodes.values()) {
-			n.classList.remove("selected");
-		}
+		// Tell viewer to clear selection
+		viewer.update({ selectedTrackId: null });
 
 		// Disable tooltip
 		document.getElementById("labeltip").style.visibility = "hidden";
@@ -204,15 +198,32 @@ var UI = (function() {
 		track.label = label;
 		track.user_labeled = true;
 
-		var nodes = getTrackNodes(track);
-		for (const n of nodes.values()) {
-			n.classList.toggle("filtered", track.label !== 'swallow-roost');
-		}
+		// Update viewer filtered state
+		viewer.update({ filteredTrackIds: buildFilteredTrackIds() });
 
 		// Warn before closing window
 		window.onbeforeunload = function() {
 			return true;
 		};
+	}
+
+	/* -----------------------------------------
+	 * Helpers
+	 * ---------------------------------------- */
+
+	function buildViewerFrames(scanList, datasetName, datasetConfig) {
+		return scanList.map(function(scan) {
+			var urls = get_urls(scan.filename, datasetName, datasetConfig);
+			return { filename: scan.filename, imageUrls: { dz: urls[0], vr: urls[1] } };
+		});
+	}
+
+	function buildFilteredTrackIds() {
+		var filtered = new Set();
+		for (var [id, track] of tracks) {
+			if (track.label !== 'swallow-roost') filtered.add(id);
+		}
+		return filtered;
 	}
 
 	/* -----------------------------------------
@@ -222,11 +233,9 @@ var UI = (function() {
 	UI.handle_config = function(data) {
 		config = data;
 	};
-	
+
 	UI.init = function()
 	{
-		svgs = d3.selectAll("#svg1, #svg2");
-				
 		// Populate data and set event handlers
 		document.getElementById("export").addEventListener("click", export_sequences);
 		document.body.addEventListener("keydown", handle_keydown);
@@ -238,11 +247,11 @@ var UI = (function() {
 			.enter()
 			.append("option")
 			.text(d => d);
-		
+
 		datasets.node().addEventListener("change", change_dataset);
 		Object.assign(filters, defaultFilters);
 		render_filters();
-		
+
 		let url_nav = url2obj(window.location.hash.substring(1));
 		Object.assign(nav, url_nav);
 		render_dataset();
@@ -263,12 +272,7 @@ var UI = (function() {
 		}
 	}
 
-	function save_notes(box)
-	{
-		box.track.notes = document.getElementById('notes').value;
-		box.user_labeled = true;
-	}
-	
+
 
 	/* -----------------------------------------
 	 * Filtering
@@ -288,7 +292,9 @@ var UI = (function() {
 			avg_score_min: +document.getElementById("avg_score_min").value
 		};
 		updateTracks(boxes, tracks, filterSettings);
-		render_frame();
+		if (!viewer) return;
+		viewer.update({ filteredTrackIds: buildFilteredTrackIds() });
+		recomputeActiveTracks();
 	}
 
 	function render_filters() {
@@ -297,7 +303,7 @@ var UI = (function() {
 		}
 	}
 
-	
+
 	/* -----------------------------------------
 	 * Page navigation and rendering
 	 * ---------------------------------------- */
@@ -305,20 +311,20 @@ var UI = (function() {
 	/* -----------------------------------------
 	 * 1. Dataset
 	 * ---------------------------------------- */
-	
+
 	function change_dataset() {
 
 		let datasets = document.getElementById('datasets');
 		datasets.blur();
-		
+
 		nav.dataset = datasets.value;
 		nav.batch = '';
 		nav.day = 0;
 		nav.frame = 0;
 
-		render_dataset();		
+		render_dataset();
 	}
-	
+
 	async function render_dataset() {
 		// If work needs saving, check if user wants to proceed
 		if (window.onbeforeunload &&
@@ -360,7 +366,7 @@ var UI = (function() {
 			render_batch();
 		}
 	}
-	
+
 
 	/* -----------------------------------------
 	 * 2. Batch
@@ -369,11 +375,11 @@ var UI = (function() {
 	function change_batch() {
 		let batches = document.getElementById('batches');
 		batches.blur();
-		
+
 		nav.batch = batches.value;
 		nav.day = 0;
 		nav.frame = 0;
-		
+
 		render_batch();
 	}
 
@@ -396,9 +402,6 @@ var UI = (function() {
 			boxes_by_day = result.boxesByDay;
 			tracks = result.tracks;
 			day_notes = result.dayNotes;
-
-			// Clear track DOM nodes for new batch
-			trackNodes = new Map();
 
 			// Update tracks based on current filter settings
 			change_filter();
@@ -436,7 +439,7 @@ var UI = (function() {
 	}
 
 
-	
+
 	/* -----------------------------------------
 	 * 3. Day
 	 * ---------------------------------------- */
@@ -448,7 +451,7 @@ var UI = (function() {
 		days.currentInd = n.value;
 		update_nav_then_render_day();
 	}
-	
+
 	function prev_day() {
 		if (days.prev()) update_nav_then_render_day();
 	}
@@ -470,7 +473,7 @@ var UI = (function() {
 		nav.frame = 0;
 		render_day();
 	}
-	
+
 	function render_day() {
 
 		if(!days) return;
@@ -488,7 +491,7 @@ var UI = (function() {
 			if (e.which == 13) notesEl.blur();
 		};
 
-		// 
+		//
 		var allframes = scans.get(day_key); // list of scans
 		var frames_with_roosts = [];
 		if (boxes_by_day.has(day_key)) {
@@ -498,7 +501,7 @@ var UI = (function() {
 		frames = new BoolList(allframes, frames_with_roosts);
 
 		var timeSelect = d3.select("#timeSelect");
-		
+
 		var options = timeSelect.selectAll("option")
 			.data(frames.items);
 
@@ -509,15 +512,50 @@ var UI = (function() {
 			.text(d => parse_time(parse_scan(d.filename)['time']));
 
 		options.exit().remove();
-		
+
 		timeSelect.node().onchange = () => {
 			var n = document.getElementById("timeSelect");
 			n.blur();
 			frames.currentInd = n.value;
 			update_nav_then_render_frame();
 		};
-		
-		render_frame();
+
+		// Destroy previous viewer
+		if (viewer) {
+			viewer.destroy();
+			viewer = null;
+		}
+
+		// Build frames and boxes for viewer
+		var viewerFrames = buildViewerFrames(allframes, nav.dataset, dataset_config);
+		var dayBoxes = boxes_by_day.get(day_key) || [];
+
+		// Mark all tracks for this day as viewed
+		for (var b of dayBoxes) {
+			b.track.viewed = true;
+		}
+
+		var container = document.getElementById("viewer");
+		viewer = new RoostViewer(container, {
+			frames: viewerFrames,
+			boxes: dayBoxes,
+			imageKeys: ['dz', 'vr'],
+			filteredTrackIds: buildFilteredTrackIds(),
+			onTrackHover: function(trackId, trackBoxes, rect) {
+				if (trackId) {
+					var track = tracks.get(trackId);
+					selectTrack(track, rect);
+				} else {
+					if (selectedTrack) scheduleUnselectTrack(selectedTrack);
+				}
+			},
+			onTrackClick: function(trackId) {
+				var track = tracks.get(trackId);
+				setTrackLabel(track, 'non-roost');
+			}
+		});
+
+		navigateToFrame();
 	}
 
 	function save_day_notes() {
@@ -526,7 +564,7 @@ var UI = (function() {
 		day_notes.set(key, value);
 	}
 
-	
+
 	/* -----------------------------------------
 	 * 4. Frame
 	 * ---------------------------------------- */
@@ -549,7 +587,7 @@ var UI = (function() {
 
 	function update_nav_then_render_frame() {
 		nav.frame = frames.currentInd;
-		render_frame();
+		navigateToFrame();
 	}
 
 	function mapper(box) {
@@ -559,87 +597,34 @@ var UI = (function() {
 		window.open(url);
 	}
 
-	function render_frame()
-	{
+	function navigateToFrame() {
 		if(!days) return;
 
 		if (selectedTrack) {
 			unselectTrack(selectedTrack);
 		}
 
-		var day = days.currentItem;
-
 		frames.currentInd = nav.frame;
 		document.getElementById("timeSelect").value = frames.currentInd;
 
-		var scan = frames.currentItem;
+		viewer.setFrame(frames.currentInd);
 
-		var urls = get_urls(scan.filename, nav["dataset"], dataset_config);
-		document.getElementById("img1").src = urls[0];
-		document.getElementById("img2").src = urls[1];
-
-		let boxes_for_day = boxes_by_day.has(day) ? boxes_by_day.get(day) : [];
-		let boxes_for_scan = boxes_for_day.filter(d => d.filename.trim() == scan.filename.trim());
-		active_tracks = boxes_for_scan.map(b => tracks.get(b.track_id));
-
-		let track_ids = boxes_for_day.map((d) => d.track_id);
-		track_ids = unique(track_ids);
-
-		// Create color map from track_ids to ordinal color scale
-		var myColor = d3.scaleOrdinal().domain(track_ids)
-			.range(d3.schemeSet1);
-
-		var scale = 1.2;
-		var groups = svgs.selectAll("g")
-			.data(boxes_for_scan, (d) => d.track_id);
-
-		groups.exit().remove();
-
-		// For entering groups, create elements
-		var entering = groups.enter()
-			.append("g")
-			.attr("class", "bbox");
-		entering.append("rect");
-		entering.append("text");
-
-		// Register each new DOM element with the track and mark the track as viewed
-		entering.each( function(d) {
-			setTrackNode(d.track, this, this.parentNode);
-			d.track.viewed = true;
-		});
-
-		// Merge existing groups with entering ones
-		groups = entering.merge(groups);
-
-		// Set handlers for group
-		groups.classed("filtered", (d) => d.track.label !== 'swallow-roost')
-			.on("mouseenter", function (e,d) { selectTrack(d.track, this); } )
-			.on("mouseleave", (e,d) => scheduleUnselectTrack(d.track) );
-
-		// Set attributes for boxes
-		groups.select("rect")
-		 	.attr("x", b => b.x - scale*b.r)
-			.attr("y", b => b.y - scale*b.r)
-		 	.attr("width", b => 2*scale*b.r)
-		 	.attr("height", b => 2*scale*b.r)
-			.attr("stroke", d => myColor(d.track_id))
-			.attr("fill", "none");
-		//.on("click", mapper)
-
-		// Set attributes for text
-		groups.select("text")
-		 	.attr("x", b => b.x - scale*b.r + 5)
-			.attr("y", b => b.y - scale*b.r - 5)
-		 	.text(b => b.track_id.split('-').pop() + ": " + b.det_score);
-
-		groups.on("click", (e,d) => setTrackLabel(d.track, "non-roost"));
+		recomputeActiveTracks();
 
 		var url = window.location.href.replace(window.location.hash,"");
 		history.replaceState({}, "", url + "#" + obj2url(nav));
+	}
 
-		//window.location.hash = obj2url(nav);
-	}	
-
+	function recomputeActiveTracks() {
+		if (!frames) return;
+		var day = days.currentItem;
+		var scan = frames.currentItem;
+		var boxes_for_day = boxes_by_day.has(day) ? boxes_by_day.get(day) : [];
+		var boxes_for_scan = boxes_for_day.filter(function(d) {
+			return d.filename.trim() === scan.filename.trim();
+		});
+		active_tracks = boxes_for_scan.map(function(b) { return tracks.get(b.track_id); });
+	}
 
 	function prev_box() {
 
@@ -661,9 +646,9 @@ var UI = (function() {
 		// Select the track
 		if (track_idx >= 0) {
 			let track = active_tracks[track_idx];
-			let nodes = getTrackNodes(track);
-			let node = nodes.values().next().value;
-			selectTrack(track, node);
+			viewer.update({ selectedTrackId: track.id });
+			var rect = viewer.getTrackRect(track.id);
+			if (rect) selectTrack(track, rect);
 		}
 	}
 
@@ -687,9 +672,9 @@ var UI = (function() {
 		// Select the track
 		if (track_idx < active_tracks.length) {
 			let track = active_tracks[track_idx];
-			let nodes = getTrackNodes(track);
-			let node = nodes.values().next().value;
-			selectTrack(track, node);
+			viewer.update({ selectedTrackId: track.id });
+			var rect = viewer.getTrackRect(track.id);
+			if (rect) selectTrack(track, rect);
 		}
 	}
 
@@ -698,11 +683,11 @@ var UI = (function() {
 			unselectTrack(selectedTrack);
 	}
 
-	
+
 	/* -----------------------------------------
 	 * 5. Export
 	 * ---------------------------------------- */
-	
+
 	function export_sequences() {
 
 		let result = formatExport(boxes, tracks, day_notes);
