@@ -70,6 +70,34 @@ var filteredOpacityLabel = document.getElementById('filtered_opacity_label');
 
 var trackSummaries = new Map();  // trackId -> { length, avg_score }
 
+// --- Hash navigation ---
+
+function parseHash() {
+	var obj = {};
+	var str = window.location.hash.substring(1);
+	if (!str) return obj;
+	var parts = str.split('&');
+	for (var i = 0; i < parts.length; i++) {
+		var kv = parts[i].split('=');
+		if (kv.length === 2 && kv[0] && kv[1]) obj[kv[0]] = kv[1];
+	}
+	return obj;
+}
+
+function updateHash() {
+	var state = {
+		station: stationSel.value,
+		year: yearSel.value,
+		day: daySel.value,
+	};
+	if (viewer) state.frame = viewer.getFrameIndex();
+	var str = Object.keys(state).map(function(k) { return k + '=' + state[k]; }).join('&');
+	var url = window.location.href.replace(window.location.hash, '');
+	history.replaceState({}, '', url + '#' + str);
+}
+
+var pendingNav = null;  // {day, frame} to apply after batch loads
+
 // --- Helpers ---
 
 function imageUrls(filename) {
@@ -165,7 +193,7 @@ function buildTooltipContent(trackId, box, trackBoxes) {
 	var div = document.createElement('div');
 	div.style.fontSize = '12px';
 	div.innerHTML =
-		'<div><b>' + trackId.split('-').pop() + '</b> (' + trackBoxes.length + ' boxes)</div>' +
+		'<div><b>Roost ' + trackId.split('-').pop() + '</b> (' + trackBoxes.length + ' detections)</div>' +
 		'<div>score: ' + (box ? box.det_score.toFixed(3) : '--') + '</div>' +
 		(box && box.lat ? '<div>lat/lon: ' + box.lat.toFixed(2) + ', ' + box.lon.toFixed(2) + '</div>' : '');
 	if (box && box.lat) {
@@ -274,10 +302,21 @@ function loadBatch(station, year) {
 			}));
 			daySel.disabled = false;
 
-			// Auto-select first day
+			// Select day from pending nav or default to first
+			var targetDay = null;
+			var targetFrame = undefined;
+			if (pendingNav) {
+				targetDay = pendingNav.day;
+				targetFrame = pendingNav.frame;
+				pendingNav = null;
+			}
 			if (availableDays.length > 0) {
-				daySel.value = availableDays[0];
-				onDayChange();
+				if (targetDay && availableDays.indexOf(targetDay) >= 0) {
+					daySel.value = targetDay;
+				} else {
+					daySel.value = availableDays[0];
+				}
+				onDayChange(targetFrame);
 			}
 		})
 		.catch(function(err) {
@@ -289,7 +328,7 @@ function loadBatch(station, year) {
 
 // --- Viewer creation ---
 
-function onDayChange() {
+function onDayChange(targetFrame) {
 	var day = daySel.value;
 	if (!day || !currentScans) return;
 
@@ -320,6 +359,7 @@ function onDayChange() {
 			frameInfo.textContent =
 				'Frame ' + (i + 1) + ' / ' + viewer.getFrameCount() +
 				'  (' + currentFrames[i].time + ')';
+			updateHash();
 		},
 		onTrackHover: function(trackId, trackBoxes, rect) {
 			if (trackId) {
@@ -349,7 +389,8 @@ function onDayChange() {
 		},
 	});
 
-	viewer.setFrame(0);
+	var frame = (typeof targetFrame === 'number') ? Math.min(targetFrame, currentFrames.length - 1) : 0;
+	viewer.setFrame(frame);
 }
 
 // --- Cascading dropdown handlers ---
@@ -429,10 +470,27 @@ d3.text(DATA_BASE + 'batches.txt').then(function(text) {
 	setOptions(stationSel, stations.map(function(s) {
 		return { value: s, label: s };
 	}));
-	if (stations.length > 0) {
-		stationSel.value = stations[0];
-		onStationChange();
+	if (stations.length === 0) return;
+
+	var hash = parseHash();
+	var station = (hash.station && stations.indexOf(hash.station) >= 0) ? hash.station : stations[0];
+	stationSel.value = station;
+
+	var years = yearsByStation[station] || [];
+	setOptions(yearSel, years.map(function(y) {
+		return { value: y, label: '' + y };
+	}));
+	var year = (hash.year && years.indexOf(parseInt(hash.year, 10)) >= 0) ? hash.year : '' + years[0];
+	yearSel.value = year;
+
+	if (hash.day || hash.frame) {
+		pendingNav = {
+			day: hash.day || null,
+			frame: hash.frame ? parseInt(hash.frame, 10) : undefined,
+		};
 	}
+
+	loadBatch(station, parseInt(year, 10));
 }).catch(function(err) {
 	console.error('Error loading batches.txt:', err);
 });
