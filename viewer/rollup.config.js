@@ -4,9 +4,9 @@ import replace from '@rollup/plugin-replace';
 import { join } from 'path';
 
 export default {
-  input: join('test-viewer', 'test-viewer.js'),
+  input: join('viewer', 'viewer.js'),
   output: {
-    file: join('test-viewer', 'dist', 'test-viewer.js'),
+    file: join('viewer', 'dist', 'viewer.js'),
     format: 'iife',
     sourcemap: true,
   },

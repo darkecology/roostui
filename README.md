@@ -19,13 +19,13 @@ Open `http://localhost:8888` and select a dataset/batch.
 
 Use `yarn run watch-serve` to rebuild on edits.
 
-## Test viewer
+## Viewer
 
-Standalone read-only viewer with hard-coded sample data (KCLE 8/20/2020). Lives in `test-viewer/`.
+Standalone read-only viewer. Lives in `viewer/`.
 
 ```
-npx rollup -c test-viewer/rollup.config.js
+npx rollup -c viewer/rollup.config.js
 yarn run serve
 ```
 
-Open `http://localhost:8888/test-viewer/`.
+Open `http://localhost:8888/viewer/`.
