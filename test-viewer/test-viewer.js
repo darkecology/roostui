@@ -47,11 +47,28 @@ function scheduleHide() {
 var stationSel = document.getElementById('stationSel');
 var yearSel = document.getElementById('yearSel');
 var daySel = document.getElementById('daySel');
-var imageSel = document.getElementById('imageSel');
+var showDZ = document.getElementById('showDZ');
+var showVR = document.getElementById('showVR');
+var currentImageKey = 'dz';
 var prevBtn = document.getElementById('prevBtn');
 var nextBtn = document.getElementById('nextBtn');
 var frameInfo = document.getElementById('frameInfo');
 var viewerEl = document.getElementById('viewer');
+var viewerWrap = document.getElementById('viewerWrap');
+var filterToggle = document.getElementById('filterToggle');
+var filterPanel = document.getElementById('filterPanel');
+var filterInputs = {
+	detections_min: document.getElementById('detections_min'),
+	high_quality_detections_min: document.getElementById('high_quality_detections_min'),
+	score_min: document.getElementById('score_min'),
+	avg_score_min: document.getElementById('avg_score_min'),
+};
+var filteredOpacity = document.getElementById('filtered_opacity');
+var filteredOpacityLabel = document.getElementById('filtered_opacity_label');
+
+// --- Track summaries (computed per batch) ---
+
+var trackSummaries = new Map();  // trackId -> { length, avg_score }
 
 // --- Helpers ---
 
@@ -91,6 +108,57 @@ function destroyViewer() {
 		currentFrames = null;
 	}
 	frameInfo.textContent = 'Frame -- / --';
+}
+
+function buildTrackSummaries(boxes) {
+	trackSummaries = new Map();
+	var grouped = d3.group(boxes, function(d) { return d.track_id; });
+	for (var entry of grouped) {
+		var id = entry[0];
+		var trackBoxes = entry[1];
+		var sum = 0;
+		for (var i = 0; i < trackBoxes.length; i++) sum += trackBoxes[i].det_score;
+		trackSummaries.set(id, {
+			length: trackBoxes.length,
+			avg_score: sum / trackBoxes.length,
+		});
+	}
+}
+
+function getFilterSettings() {
+	return {
+		detections_min: +filterInputs.detections_min.value,
+		high_quality_detections_min: +filterInputs.high_quality_detections_min.value,
+		score_min: +filterInputs.score_min.value,
+		avg_score_min: +filterInputs.avg_score_min.value,
+	};
+}
+
+function buildFilteredTrackIds() {
+	var settings = getFilterSettings();
+	var filtered = new Set();
+
+	// Count high-quality detections per track
+	var hqCounts = d3.rollup(currentBoxes, function(v) {
+		return v.filter(function(d) { return d.det_score >= settings.score_min; }).length;
+	}, function(d) { return d.track_id; });
+
+	for (var entry of trackSummaries) {
+		var id = entry[0];
+		var t = entry[1];
+		if (t.length < settings.detections_min ||
+			(hqCounts.get(id) || 0) < settings.high_quality_detections_min ||
+			t.avg_score < settings.avg_score_min) {
+			filtered.add(id);
+		}
+	}
+	return filtered;
+}
+
+function onFilterChange() {
+	if (viewer) {
+		viewer.update({ filteredTrackIds: buildFilteredTrackIds() });
+	}
 }
 
 function buildTooltipContent(trackId, box, trackBoxes) {
@@ -195,6 +263,7 @@ function loadBatch(station, year) {
 			});
 
 			currentBoxesByDay = d3.group(currentBoxes, function(d) { return d.local_date; });
+			buildTrackSummaries(currentBoxes);
 
 			// Build sorted day list from scans
 			availableDays = Array.from(currentScans.keys()).sort();
@@ -240,12 +309,13 @@ function onDayChange() {
 		};
 	});
 
-	var imageKey = imageSel.value;
+	var imageKey = currentImageKey;
 
 	viewer = new RoostViewer(viewerEl, {
 		frames: currentFrames,
 		boxes: boxes,
 		imageKeys: [imageKey],
+		filteredTrackIds: buildFilteredTrackIds(),
 		onFrameChange: function(i) {
 			frameInfo.textContent =
 				'Frame ' + (i + 1) + ' / ' + viewer.getFrameCount() +
@@ -310,10 +380,29 @@ stationSel.addEventListener('change', onStationChange);
 yearSel.addEventListener('change', onYearChange);
 daySel.addEventListener('change', onDayChange);
 
-imageSel.addEventListener('change', function() {
-	if (viewer) {
-		viewer.update({ imageKeys: [imageSel.value] });
-	}
+function setImageKey(key) {
+	currentImageKey = key;
+	showDZ.classList.toggle('active', key === 'dz');
+	showVR.classList.toggle('active', key === 'vr');
+	if (viewer) viewer.update({ imageKeys: [key] });
+}
+
+showDZ.addEventListener('click', function() { setImageKey('dz'); });
+showVR.addEventListener('click', function() { setImageKey('vr'); });
+
+filterToggle.addEventListener('click', function() {
+	filterPanel.classList.toggle('open');
+	filterToggle.innerHTML = filterPanel.classList.contains('open') ? '&#9652; Filters' : '&#9662; Filters';
+});
+
+for (var key in filterInputs) {
+	filterInputs[key].addEventListener('change', onFilterChange);
+}
+
+filteredOpacity.addEventListener('input', function() {
+	var val = +filteredOpacity.value;
+	viewerWrap.style.setProperty('--filtered-opacity', val);
+	filteredOpacityLabel.textContent = val === 0 ? 'hidden' : (val * 100).toFixed(0) + '%';
 });
 
 prevBtn.addEventListener('click', function() { if (viewer) viewer.prevFrame(); });
