@@ -3,36 +3,33 @@
   <title>RoostViewer Test</title>
   <style>
     body { font-family: sans-serif; margin: 20px; background: #111; color: #eee; }
-    #controls { margin-bottom: 10px; }
-    #controls button { margin-right: 8px; padding: 4px 12px; }
-    #status { margin-bottom: 10px; }
-    #status span { margin-right: 20px; }
+    #toolbar { margin-bottom: 10px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    #toolbar label { color: #aaa; font-size: 13px; }
+    #toolbar select { padding: 3px 6px; }
+    #nav { margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+    #nav button { padding: 4px 12px; }
     #viewer { margin-bottom: 10px; }
-    #log {
-      background: #222; padding: 8px; font-family: monospace; font-size: 12px;
-      height: 120px; overflow-y: auto; border: 1px solid #444;
-      max-width: 1200px;
-    }
   </style>
+  <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/dist/tippy.css">
 </head>
 <body>
-  <h2>RoostViewer Test -- KCLE 8/20/2020</h2>
-  <div id="controls">
+  <h2>RoostViewer Test</h2>
+  <div id="toolbar">
+    <label>Station <select id="stationSel"></select></label>
+    <label>Year <select id="yearSel"></select></label>
+    <label>Day <select id="daySel"></select></label>
+    <label>Image <select id="imageSel">
+      <option value="dz" selected>DZ</option>
+      <option value="vr">VR</option>
+    </select></label>
+  </div>
+  <div id="nav">
     <button id="prevBtn">&larr; Prev</button>
+    <span id="frameInfo">Frame -- / --</span>
     <button id="nextBtn">Next &rarr;</button>
-    <button id="showDZ" disabled>DZ</button>
-    <button id="showVR">VR</button>
     <span style="color:#888; margin-left:10px;">Arrow keys also work</span>
   </div>
-  <div id="status">
-    <span id="frameInfo">Frame -- / --</span>
-    <span id="hoverInfo">Hover: --</span>
-    <span id="selInfo">Selected: --</span>
-  </div>
   <div id="viewer"></div>
-  <h4>Event log</h4>
-  <div id="log"></div>
 </body>
 <script src="dist/test-viewer.js"></script>
-<!-- Build: rollup -c test-viewer/rollup.config.js (from project root) -->
 </html>
