@@ -7,4 +7,4 @@ DST=${3:-/var/www/html/roost/}
 FULLPATH=$DST/$NAME
 
 ssh $HOST mkdir -p $FULLPATH
-rsync -avz --include "index.html" --include "dist**" --include "data**" --exclude "*" --chmod=ug=rwX . $HOST:$FULLPATH/
+rsync -avz --include "index.html" --include "dist**" --include "data**" --include "viewer**" --exclude "*" --chmod=ug=rwX . $HOST:$FULLPATH/
