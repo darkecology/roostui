@@ -1,4 +1,5 @@
 import * as d3 from 'd3';
+import * as topojson from 'topojson-client';
 import { parse_day, parse_time, parse_scan,
 		 get_urls, obj2url, url2obj } from './utils.js';
 import { BoolList } from './BoolList.js';
@@ -41,10 +42,21 @@ var UI = (function() {
 
 	var filters = {};			// Current filters
 
+	var stationCoords = null;	// { callsign: { lat, lon } }
+	var geoFeatures = null;		// { states, counties, lakes }
+	var mapEnabled = true;
+
 
 	/* -----------------------------------------
 	 * UI globals
 	 * ---------------------------------------- */
+
+	function toggleMap() {
+		mapEnabled = !mapEnabled;
+		var el = document.getElementById("mapToggle");
+		if (el) el.checked = mapEnabled;
+		if (viewer) viewer.update({ mapConfig: buildMapConfig() });
+	}
 
 	var keymap = {
 		'9':  next_box, // tab
@@ -52,7 +64,8 @@ var UI = (function() {
 		'38': prev_day, // up
 		'40': next_day, // down
 		'37': prev_frame,	// left
-		'39': next_frame   // right
+		'39': next_frame,  // right
+		'77': toggleMap    // m
 	};
 
 	var shift_keymap = {
@@ -226,6 +239,40 @@ var UI = (function() {
 		return filtered;
 	}
 
+	function buildMapConfig() {
+		if (!mapEnabled || !geoFeatures || !stationCoords) return null;
+		var code = nav.batch ? nav.batch.substring(0, 4) : null;
+		if (!code || !stationCoords[code]) return null;
+		var coords = stationCoords[code];
+		return {
+			lat: coords.lat,
+			lon: coords.lon,
+			features: geoFeatures,
+		};
+	}
+
+	function loadGeoData() {
+		return Promise.all([
+			d3.json('data/stations.json'),
+			d3.json('data/geo/states-10m.json'),
+			d3.json('data/geo/counties-10m.json'),
+			d3.json('data/geo/lakes.json'),
+		]).then(function(results) {
+			stationCoords = results[0];
+			var statesTopo = results[1];
+			var countiesTopo = results[2];
+			var lakesGeo = results[3];
+			geoFeatures = {
+				nation: topojson.feature(statesTopo, statesTopo.objects.nation),
+				states: topojson.mesh(statesTopo, statesTopo.objects.states, function(a, b) { return a !== b; }),
+				counties: topojson.mesh(countiesTopo, countiesTopo.objects.counties, function(a, b) { return a !== b; }),
+				lakes: lakesGeo,
+			};
+		}).catch(function(err) {
+			console.warn('Failed to load geo data (map overlay disabled):', err);
+		});
+	}
+
 	/* -----------------------------------------
 	 * UI
 	 * ---------------------------------------- */
@@ -239,6 +286,19 @@ var UI = (function() {
 		// Populate data and set event handlers
 		document.getElementById("export").addEventListener("click", export_sequences);
 		document.body.addEventListener("keydown", handle_keydown);
+
+		// Map toggle
+		var mapToggle = document.getElementById("mapToggle");
+		if (mapToggle) {
+			mapToggle.addEventListener("change", function() {
+				mapEnabled = mapToggle.checked;
+				if (viewer) viewer.update({ mapConfig: buildMapConfig() });
+			});
+		}
+
+
+		// Load geo data (non-blocking)
+		loadGeoData();
 
 		// Populate datasets
 		var datasets = d3.select('#datasets');
@@ -540,6 +600,7 @@ var UI = (function() {
 			frames: viewerFrames,
 			boxes: dayBoxes,
 			imageKeys: ['dz', 'vr'],
+			mapConfig: buildMapConfig(),
 			filteredTrackIds: buildFilteredTrackIds(),
 			onTrackHover: function(trackId, trackBoxes, rect) {
 				if (trackId) {

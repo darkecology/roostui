@@ -1,4 +1,5 @@
 import * as d3 from 'd3';
+import * as topojson from 'topojson-client';
 import tippy from 'tippy.js';
 import { RoostViewer } from '../js/RoostViewer.js';
 
@@ -65,6 +66,13 @@ var filterInputs = {
 };
 var filteredOpacity = document.getElementById('filtered_opacity');
 var filteredOpacityLabel = document.getElementById('filtered_opacity_label');
+var showMap = document.getElementById('showMap');
+
+// --- Geo data state ---
+
+var stationCoords = null;
+var geoFeatures = null;
+var mapEnabled = true;
 
 // --- Track summaries (computed per batch) ---
 
@@ -211,6 +219,42 @@ function buildTooltipContent(trackId, box, trackBoxes) {
 	return div;
 }
 
+// --- Map overlay ---
+
+function buildMapConfig() {
+	if (!mapEnabled || !geoFeatures || !stationCoords) return null;
+	var code = stationSel.value;
+	if (!code || !stationCoords[code]) return null;
+	var coords = stationCoords[code];
+	return {
+		lat: coords.lat,
+		lon: coords.lon,
+		features: geoFeatures,
+	};
+}
+
+function loadGeoData() {
+	return Promise.all([
+		d3.json('../data/stations.json'),
+		d3.json('../data/geo/states-10m.json'),
+		d3.json('../data/geo/counties-10m.json'),
+		d3.json('../data/geo/lakes.json'),
+	]).then(function(results) {
+		stationCoords = results[0];
+		var statesTopo = results[1];
+		var countiesTopo = results[2];
+		var lakesGeo = results[3];
+		geoFeatures = {
+			nation: topojson.feature(statesTopo, statesTopo.objects.nation),
+			states: topojson.mesh(statesTopo, statesTopo.objects.states, function(a, b) { return a !== b; }),
+			counties: topojson.mesh(countiesTopo, countiesTopo.objects.counties, function(a, b) { return a !== b; }),
+			lakes: lakesGeo,
+		};
+	}).catch(function(err) {
+		console.warn('Failed to load geo data (map overlay disabled):', err);
+	});
+}
+
 // --- Day navigation ---
 
 function prevDay() {
@@ -354,6 +398,7 @@ function onDayChange(targetFrame) {
 		frames: currentFrames,
 		boxes: boxes,
 		imageKeys: [imageKey],
+		mapConfig: buildMapConfig(),
 		filteredTrackIds: buildFilteredTrackIds(),
 		onFrameChange: function(i) {
 			frameInfo.textContent =
@@ -431,6 +476,12 @@ function setImageKey(key) {
 showDZ.addEventListener('click', function() { setImageKey('dz'); });
 showVR.addEventListener('click', function() { setImageKey('vr'); });
 
+showMap.addEventListener('click', function() {
+	mapEnabled = !mapEnabled;
+	showMap.classList.toggle('active', mapEnabled);
+	if (viewer) viewer.update({ mapConfig: buildMapConfig() });
+});
+
 filterToggle.addEventListener('click', function() {
 	filterPanel.classList.toggle('open');
 	filterToggle.innerHTML = filterPanel.classList.contains('open') ? '&#9652; Filters' : '&#9662; Filters';
@@ -461,9 +512,12 @@ document.addEventListener('keydown', function(e) {
 	if (e.key === 'ArrowRight' && viewer) viewer.nextFrame();
 	if (e.key === 'ArrowUp') { e.preventDefault(); prevDay(); }
 	if (e.key === 'ArrowDown') { e.preventDefault(); nextDay(); }
+	if (e.key === 'm') { showMap.click(); }
 });
 
 // --- Startup ---
+
+loadGeoData();
 
 d3.text(DATA_BASE + 'batches.txt').then(function(text) {
 	parseBatches(text);

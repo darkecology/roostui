@@ -1,4 +1,5 @@
 import * as d3 from 'd3';
+import { MapOverlay } from './MapOverlay.js';
 
 /* -----------------------------------------
  * Shared style injection (ref-counted)
@@ -60,6 +61,7 @@ export class RoostViewer {
 			frames: [],
 			boxes: [],
 			imageKeys: ['dz', 'vr'],
+			mapConfig: null,
 			formatBoxLabel: (box) => box.track_id.split('-').pop() + ': ' + box.det_score,
 			selectedTrackId: null,
 			filteredTrackIds: new Set(),
@@ -132,11 +134,14 @@ export class RoostViewer {
 	_buildPanels() {
 		// Remove existing panels
 		for (var panel of this._panels) {
+			if (panel.mapOverlay) panel.mapOverlay.destroy();
 			panel.wrapper.remove();
 		}
 		this._panels = [];
 
 		var keys = this._options.imageKeys;
+		var mapConfig = this._options.mapConfig;
+
 		for (var i = 0; i < keys.length; i++) {
 			var wrapper = document.createElement('div');
 			wrapper.style.position = 'absolute';
@@ -152,6 +157,23 @@ export class RoostViewer {
 			img.style.width = PANEL_SIZE + 'px';
 			img.style.height = PANEL_SIZE + 'px';
 
+			wrapper.appendChild(img);
+
+			// Map overlay canvas (between img and svg)
+			var canvas = null;
+			var mapOverlay = null;
+			if (mapConfig) {
+				canvas = document.createElement('canvas');
+				canvas.width = PANEL_SIZE;
+				canvas.height = PANEL_SIZE;
+				canvas.style.position = 'absolute';
+				canvas.style.left = '0px';
+				canvas.style.top = '0px';
+				canvas.style.pointerEvents = 'none';
+				wrapper.appendChild(canvas);
+				mapOverlay = new MapOverlay(canvas, mapConfig);
+			}
+
 			var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
 			svg.setAttribute('width', PANEL_SIZE);
 			svg.setAttribute('height', PANEL_SIZE);
@@ -159,11 +181,10 @@ export class RoostViewer {
 			svg.style.left = '0px';
 			svg.style.top = '0px';
 
-			wrapper.appendChild(img);
 			wrapper.appendChild(svg);
 			this._container.appendChild(wrapper);
 
-			this._panels.push({ wrapper: wrapper, img: img, svg: svg, key: keys[i] });
+			this._panels.push({ wrapper: wrapper, img: img, canvas: canvas, mapOverlay: mapOverlay, svg: svg, key: keys[i] });
 		}
 
 		// Set container dimensions to fit all panels
@@ -335,6 +356,14 @@ export class RoostViewer {
 			rebuildPanels = true;
 		}
 
+		// Detect mapConfig added or removed (need to rebuild panels for canvas element)
+		var mapConfigChanged = options.mapConfig !== undefined;
+		var hadMap = !!this._options.mapConfig;
+		var willHaveMap = mapConfigChanged ? !!options.mapConfig : hadMap;
+		if (mapConfigChanged && hadMap !== willHaveMap) {
+			rebuildPanels = true;
+		}
+
 		// Merge options
 		Object.assign(this._options, options);
 
@@ -342,6 +371,14 @@ export class RoostViewer {
 			this._buildPanels();
 			this.setFrame(this._frameIndex);
 		} else {
+			// Update existing map overlays if mapConfig changed but panels didn't rebuild
+			if (mapConfigChanged && this._options.mapConfig) {
+				for (var panel of this._panels) {
+					if (panel.mapOverlay) {
+						panel.mapOverlay.update(this._options.mapConfig);
+					}
+				}
+			}
 			this._renderBoxes();
 		}
 	}
@@ -353,6 +390,7 @@ export class RoostViewer {
 	destroy() {
 		// Remove panels
 		for (var panel of this._panels) {
+			if (panel.mapOverlay) panel.mapOverlay.destroy();
 			panel.wrapper.remove();
 		}
 		this._panels = [];
