@@ -5,7 +5,7 @@ import { RoostViewer } from '../js/RoostViewer.js';
 
 // --- Config ---
 
-var DATASET = 'all_stations_v3';
+var DATASET = 'us_sunrise_v3_2013-2023';
 var DATA_BASE = '../data/' + DATASET + '/';
 var IMG_BASE = 'http://doppler.cs.umass.edu/roost/img/' + DATASET;
 
@@ -246,16 +246,16 @@ function loadGeoData() {
 		d3.json('../data/geo/states-10m.json'),
 		d3.json('../data/geo/counties-10m.json'),
 		d3.json('../data/geo/lakes.json'),
-		d3.json('../data/geo/land-110m.json'),
+		d3.json('../data/geo/neighbors.json'),
 	]).then(function(results) {
 		stationCoords = results[0];
 		var statesTopo = results[1];
 		var countiesTopo = results[2];
 		var lakesGeo = results[3];
-		var landTopo = results[4];
+		var neighborsGeo = results[4];
 		geoFeatures = {
-			land: topojson.feature(landTopo, landTopo.objects.land),
 			nation: topojson.feature(statesTopo, statesTopo.objects.nation),
+			neighbors: neighborsGeo,
 			states: topojson.mesh(statesTopo, statesTopo.objects.states, function(a, b) { return a !== b; }),
 			counties: topojson.mesh(countiesTopo, countiesTopo.objects.counties, function(a, b) { return a !== b; }),
 			lakes: lakesGeo,

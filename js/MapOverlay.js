@@ -32,18 +32,37 @@ export class MapOverlay {
 
 		ctx.clearRect(0, 0, PANEL_SIZE, PANEL_SIZE);
 
-		// Ocean: fill everything outside land masses with blue tint.
-		// Uses evenodd fill rule: outer rect + land path = fills the gap.
-		var landFeature = features.land || features.nation;
-		if (landFeature) {
-			ctx.beginPath();
-			ctx.rect(0, 0, PANEL_SIZE, PANEL_SIZE);
-			path(landFeature);
-			ctx.fillStyle = 'rgba(70, 130, 180, 0.25)';
-			ctx.fill('evenodd');
-		}
+		// Ocean tint:
+		// 1) Fill entire canvas blue
+		// 2) Erase all land (US nation + neighbors) with destination-out
+		// 3) Re-fill lakes blue
+		ctx.fillStyle = 'rgba(70, 130, 180, 0.25)';
+		ctx.fillRect(0, 0, PANEL_SIZE, PANEL_SIZE);
 
-		// Inland water bodies (same blue fill)
+		// Erase all land and lakes, then re-fill lakes uniformly.
+		// Lakes must be erased first so border lakes (e.g. Great Lakes)
+		// don't get double blue from the initial fill + lake fill.
+		ctx.save();
+		ctx.globalCompositeOperation = 'destination-out';
+		ctx.fillStyle = 'rgba(0, 0, 0, 1)';
+		if (features.nation) {
+			ctx.beginPath();
+			path(features.nation);
+			ctx.fill();
+		}
+		if (features.neighbors) {
+			ctx.beginPath();
+			path(features.neighbors);
+			ctx.fill();
+		}
+		if (features.lakes) {
+			ctx.beginPath();
+			path(features.lakes);
+			ctx.fill();
+		}
+		ctx.restore();
+
+		// Re-fill lakes with uniform blue
 		if (features.lakes) {
 			ctx.beginPath();
 			path(features.lakes);
