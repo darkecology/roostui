@@ -432,20 +432,18 @@ export class RoostViewer {
 		var dist = Math.sqrt(xKm * xKm + yKm * yKm);
 
 		var lines = [];
-		lines.push('From radar (km):');
-		lines.push('x, y: ' + xKm.toFixed(1) + ', ' + yKm.toFixed(1));
-		lines.push('dist: ' + dist.toFixed(1));
-
 		if (panel.mapOverlay) {
 			var lonlat = panel.mapOverlay.invert(px, py);
 			var lat = lonlat[1];
 			var lon = lonlat[0];
 			var latStr = Math.abs(lat).toFixed(4) + '\u00B0' + (lat >= 0 ? 'N' : 'S');
 			var lonStr = Math.abs(lon).toFixed(4) + '\u00B0' + (lon >= 0 ? 'E' : 'W');
-			lines.push(latStr + ', ' + lonStr);
 			var mapsUrl = 'https://www.google.com/maps?q=' + lat.toFixed(6) + ',' + lon.toFixed(6);
 			lines.push('<a href="' + mapsUrl + '" target="_blank" rel="noopener">Google Maps</a>');
+			lines.push(latStr + ', ' + lonStr);
 		}
+		lines.push('x, y (km): ' + xKm.toFixed(1) + ', ' + yKm.toFixed(1));
+		lines.push(dist.toFixed(1) + ' km from radar');
 
 		// Crosshair marker at click point
 		var panelLeft = parseInt(panel.wrapper.style.left, 10) || 0;
