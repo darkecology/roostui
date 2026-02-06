@@ -32,12 +32,13 @@ export class MapOverlay {
 
 		ctx.clearRect(0, 0, PANEL_SIZE, PANEL_SIZE);
 
-		// Ocean: fill everything outside the nation boundary with blue tint.
-		// Uses evenodd fill rule: outer rect + nation path = fills the gap.
-		if (features.nation) {
+		// Ocean: fill everything outside land masses with blue tint.
+		// Uses evenodd fill rule: outer rect + land path = fills the gap.
+		var landFeature = features.land || features.nation;
+		if (landFeature) {
 			ctx.beginPath();
 			ctx.rect(0, 0, PANEL_SIZE, PANEL_SIZE);
-			path(features.nation);
+			path(landFeature);
 			ctx.fillStyle = 'rgba(70, 130, 180, 0.25)';
 			ctx.fill('evenodd');
 		}

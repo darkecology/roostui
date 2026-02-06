@@ -239,12 +239,15 @@ function loadGeoData() {
 		d3.json('../data/geo/states-10m.json'),
 		d3.json('../data/geo/counties-10m.json'),
 		d3.json('../data/geo/lakes.json'),
+		d3.json('../data/geo/land-110m.json'),
 	]).then(function(results) {
 		stationCoords = results[0];
 		var statesTopo = results[1];
 		var countiesTopo = results[2];
 		var lakesGeo = results[3];
+		var landTopo = results[4];
 		geoFeatures = {
+			land: topojson.feature(landTopo, landTopo.objects.land),
 			nation: topojson.feature(statesTopo, statesTopo.objects.nation),
 			states: topojson.mesh(statesTopo, statesTopo.objects.states, function(a, b) { return a !== b; }),
 			counties: topojson.mesh(countiesTopo, countiesTopo.objects.counties, function(a, b) { return a !== b; }),
