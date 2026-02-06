@@ -233,6 +233,13 @@ function buildMapConfig() {
 	};
 }
 
+function buildStationInfo() {
+	var code = stationSel.value;
+	if (!code || !stationCoords || !stationCoords[code]) return null;
+	var info = stationCoords[code];
+	return { code: code, name: info.name, st: info.st, county: info.county, country: info.country, elev: info.elev, lat: info.lat, lon: info.lon, tz: info.tz };
+}
+
 function loadGeoData() {
 	return Promise.all([
 		d3.json('../data/stations.json'),
@@ -404,6 +411,7 @@ function onDayChange(targetFrame) {
 		boxes: boxes,
 		imageKeys: [imageKey],
 		mapConfig: buildMapConfig(),
+		stationInfo: buildStationInfo(),
 		filteredTrackIds: buildFilteredTrackIds(),
 		onFrameChange: function(i) {
 			frameInfo.textContent =
@@ -522,12 +530,22 @@ document.addEventListener('keydown', function(e) {
 
 // --- Startup ---
 
-loadGeoData();
+function titleCase(s) {
+	return s.toLowerCase().replace(/\b\w/g, function(c) { return c.toUpperCase(); })
+		.replace(/\bAfb\b/g, 'AFB');
+}
 
-d3.text(DATA_BASE + 'batches.txt').then(function(text) {
+function stationLabel(code) {
+	var info = stationCoords && stationCoords[code];
+	if (!info || !info.name) return code;
+	return code + ' \u2014 ' + titleCase(info.name) + (info.st ? ', ' + info.st : '');
+}
+
+Promise.all([loadGeoData(), d3.text(DATA_BASE + 'batches.txt')]).then(function(results) {
+	var text = results[1];
 	parseBatches(text);
 	setOptions(stationSel, stations.map(function(s) {
-		return { value: s, label: s };
+		return { value: s, label: stationLabel(s) };
 	}));
 	if (stations.length === 0) return;
 

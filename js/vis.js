@@ -239,6 +239,18 @@ var UI = (function() {
 		return filtered;
 	}
 
+	function titleCase(s) {
+		return s.toLowerCase().replace(/\b\w/g, function(c) { return c.toUpperCase(); })
+			.replace(/\bAfb\b/g, 'AFB');
+	}
+
+	function batchTitle(batch) {
+		var code = batch.substring(0, 4);
+		var info = stationCoords && stationCoords[code];
+		if (!info || !info.name) return '';
+		return titleCase(info.name) + (info.st ? ', ' + info.st : '');
+	}
+
 	function buildMapConfig() {
 		if (!mapEnabled || !geoFeatures || !stationCoords) return null;
 		var code = nav.batch ? nav.batch.substring(0, 4) : null;
@@ -249,6 +261,13 @@ var UI = (function() {
 			lon: coords.lon,
 			features: geoFeatures,
 		};
+	}
+
+	function buildStationInfo() {
+		var code = nav.batch ? nav.batch.substring(0, 4) : null;
+		if (!code || !stationCoords || !stationCoords[code]) return null;
+		var info = stationCoords[code];
+		return { code: code, name: info.name, st: info.st, county: info.county, country: info.country, elev: info.elev, lat: info.lat, lon: info.lon, tz: info.tz };
 	}
 
 	function loadGeoData() {
@@ -419,7 +438,8 @@ var UI = (function() {
 			var options = batchesSelect.selectAll("option")
 				.data(result.batches)
 				.join("option")
-				.text(d => d);
+				.text(d => d)
+				.attr('title', d => batchTitle(d));
 			batchesSelect.node().addEventListener("change", change_batch);
 
 			// If the batch nav is not set already, use the selected value
@@ -606,6 +626,7 @@ var UI = (function() {
 			boxes: dayBoxes,
 			imageKeys: ['dz', 'vr'],
 			mapConfig: buildMapConfig(),
+			stationInfo: buildStationInfo(),
 			filteredTrackIds: buildFilteredTrackIds(),
 			onTrackHover: function(trackId, trackBoxes, rect) {
 				if (trackId) {

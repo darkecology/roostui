@@ -24,6 +24,11 @@ const VIEWER_CSS = `
 	position: absolute; z-index: 99; pointer-events: none;
 	width: 12px; height: 12px; margin-left: -6px; margin-top: -6px;
 }
+.roost-viewer .rv-station-label {
+	position: absolute; z-index: 10; bottom: 4px; left: 4px; pointer-events: auto;
+	background: rgba(0,0,0,0.55); color: rgba(255,255,255,0.85); font: 11px/1.3 sans-serif;
+	padding: 2px 6px; border-radius: 3px; cursor: default;
+}
 .roost-viewer .rv-location-marker::before,
 .roost-viewer .rv-location-marker::after {
 	content: ''; position: absolute; background: #f44;
@@ -82,6 +87,7 @@ export class RoostViewer {
 			boxes: [],
 			imageKeys: ['dz', 'vr'],
 			mapConfig: null,
+			stationInfo: null,
 			formatBoxLabel: (box) => box.track_id.split('-').pop() + ': ' + box.det_score,
 			selectedTrackId: null,
 			filteredTrackIds: new Set(),
@@ -218,9 +224,48 @@ export class RoostViewer {
 			})(panelObj);
 		}
 
+		// Station label overlay (on first panel)
+		this._stationLabel = null;
+		this._updateStationLabel();
+
 		// Set container dimensions to fit all panels
 		this._container.style.width = (keys.length * PANEL_SIZE) + 'px';
 		this._container.style.height = PANEL_SIZE + 'px';
+	}
+
+	_titleCase(s) {
+		return s.toLowerCase().replace(/\b\w/g, function(c) { return c.toUpperCase(); })
+			.replace(/\bAfb\b/g, 'AFB');
+	}
+
+	_updateStationLabel() {
+		if (this._stationLabel) {
+			this._stationLabel.remove();
+			this._stationLabel = null;
+		}
+		var info = this._options.stationInfo;
+		if (!info || !this._panels.length) return;
+
+		var code = info.code || '';
+		var name = info.name ? this._titleCase(info.name) : '';
+		var label = code + (name ? ' \u2014 ' + name : '') + (info.st ? ', ' + info.st : '');
+
+		var el = document.createElement('div');
+		el.className = 'rv-station-label';
+		el.textContent = label;
+
+		var lines = [];
+		if (info.county) lines.push('County: ' + this._titleCase(info.county));
+		if (info.country) lines.push('Country: ' + this._titleCase(info.country));
+		if (info.elev != null) lines.push('Elevation: ' + info.elev + ' ft');
+		if (info.lat != null && info.lon != null) {
+			lines.push('Location: ' + info.lat.toFixed(4) + '\u00B0, ' + info.lon.toFixed(4) + '\u00B0');
+		}
+		if (info.tz) lines.push('Timezone: ' + info.tz);
+		if (lines.length) el.title = lines.join('\n');
+
+		this._panels[0].wrapper.appendChild(el);
+		this._stationLabel = el;
 	}
 
 	/* -----------------------------------------
@@ -409,6 +454,10 @@ export class RoostViewer {
 						panel.mapOverlay.update(this._options.mapConfig);
 					}
 				}
+			}
+			// Update station label if stationInfo changed
+			if (options.stationInfo !== undefined) {
+				this._updateStationLabel();
 			}
 			this._renderBoxes();
 		}
