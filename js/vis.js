@@ -271,6 +271,8 @@ var UI = (function() {
 				counties: topojson.mesh(countiesTopo, countiesTopo.objects.counties, function(a, b) { return a !== b; }),
 				lakes: lakesGeo,
 			};
+			// If the viewer was created before geo data loaded, push the map config now
+			if (viewer) viewer.update({ mapConfig: buildMapConfig() });
 		}).catch(function(err) {
 			console.warn('Failed to load geo data (map overlay disabled):', err);
 		});
