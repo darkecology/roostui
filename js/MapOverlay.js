@@ -87,6 +87,10 @@ export class MapOverlay {
 		this.render();
 	}
 
+	invert(x, y) {
+		return this._projection.invert([x, y]);
+	}
+
 	destroy() {
 		this._ctx.clearRect(0, 0, PANEL_SIZE, PANEL_SIZE);
 	}

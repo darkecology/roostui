@@ -14,6 +14,26 @@ const VIEWER_CSS = `
 .roost-viewer .bbox.selected > rect { fill: orange; fill-opacity: 0.7; }
 .roost-viewer .bbox.filtered { opacity: 0.45; }
 .roost-viewer .bbox.filtered.selected { opacity: 0.7; }
+.roost-viewer .rv-location-tooltip {
+	position: absolute; z-index: 100; pointer-events: none;
+	background: rgba(0,0,0,0.85); color: #fff; font: 12px/1.4 monospace;
+	padding: 6px 10px; border-radius: 4px; white-space: nowrap;
+}
+.roost-viewer .rv-location-tooltip a { color: #6cf; pointer-events: auto; }
+.roost-viewer .rv-location-marker {
+	position: absolute; z-index: 99; pointer-events: none;
+	width: 12px; height: 12px; margin-left: -6px; margin-top: -6px;
+}
+.roost-viewer .rv-location-marker::before,
+.roost-viewer .rv-location-marker::after {
+	content: ''; position: absolute; background: #f44;
+}
+.roost-viewer .rv-location-marker::before {
+	width: 2px; height: 100%; left: 5px; top: 0;
+}
+.roost-viewer .rv-location-marker::after {
+	width: 100%; height: 2px; top: 5px; left: 0;
+}
 `;
 
 function injectStyle() {
@@ -72,6 +92,9 @@ export class RoostViewer {
 
 		this._frameIndex = 0;
 		this._panels = [];      // [{ img, svg }]
+		this._locationTooltip = null;
+		this._locationMarker = null;
+		this._dismissTooltip = this._dismissLocationTooltip.bind(this);
 
 		// Index data
 		this._indexData();
@@ -184,7 +207,15 @@ export class RoostViewer {
 			wrapper.appendChild(svg);
 			this._container.appendChild(wrapper);
 
-			this._panels.push({ wrapper: wrapper, img: img, canvas: canvas, mapOverlay: mapOverlay, svg: svg, key: keys[i] });
+			var panelObj = { wrapper: wrapper, img: img, canvas: canvas, mapOverlay: mapOverlay, svg: svg, key: keys[i] };
+			this._panels.push(panelObj);
+
+			var self = this;
+			(function(p) {
+				wrapper.addEventListener('contextmenu', function(e) {
+					self._showLocationTooltip(e, p);
+				});
+			})(panelObj);
 		}
 
 		// Set container dimensions to fit all panels
@@ -384,10 +415,80 @@ export class RoostViewer {
 	}
 
 	/* -----------------------------------------
+	 * Location tooltip (right-click)
+	 * ---------------------------------------- */
+
+	_showLocationTooltip(e, panel) {
+		e.preventDefault();
+		this._dismissLocationTooltip();
+
+		var rect = panel.wrapper.getBoundingClientRect();
+		var px = e.clientX - rect.left;
+		var py = e.clientY - rect.top;
+
+		// Pixel-to-km: 600px = 300km diameter, so 1px = 0.5km
+		var xKm = (px - 300) * 0.5;
+		var yKm = (300 - py) * 0.5;
+		var dist = Math.sqrt(xKm * xKm + yKm * yKm);
+
+		var lines = [];
+		lines.push('From radar (km):');
+		lines.push('x, y: ' + xKm.toFixed(1) + ', ' + yKm.toFixed(1));
+		lines.push('dist: ' + dist.toFixed(1));
+
+		if (panel.mapOverlay) {
+			var lonlat = panel.mapOverlay.invert(px, py);
+			var lat = lonlat[1];
+			var lon = lonlat[0];
+			var latStr = Math.abs(lat).toFixed(4) + '\u00B0' + (lat >= 0 ? 'N' : 'S');
+			var lonStr = Math.abs(lon).toFixed(4) + '\u00B0' + (lon >= 0 ? 'E' : 'W');
+			lines.push(latStr + ', ' + lonStr);
+			var mapsUrl = 'https://www.google.com/maps?q=' + lat.toFixed(6) + ',' + lon.toFixed(6);
+			lines.push('<a href="' + mapsUrl + '" target="_blank" rel="noopener">Google Maps</a>');
+		}
+
+		// Crosshair marker at click point
+		var panelLeft = parseInt(panel.wrapper.style.left, 10) || 0;
+		var marker = document.createElement('div');
+		marker.className = 'rv-location-marker';
+		marker.style.left = (panelLeft + px) + 'px';
+		marker.style.top = py + 'px';
+		this._container.appendChild(marker);
+		this._locationMarker = marker;
+
+		// Tooltip
+		var tooltip = document.createElement('div');
+		tooltip.className = 'rv-location-tooltip';
+		tooltip.innerHTML = lines.join('<br>');
+		tooltip.style.left = (panelLeft + px + 12) + 'px';
+		tooltip.style.top = (py + 12) + 'px';
+
+		this._container.appendChild(tooltip);
+		this._locationTooltip = tooltip;
+
+		document.addEventListener('click', this._dismissTooltip, true);
+		document.addEventListener('contextmenu', this._dismissTooltip, true);
+	}
+
+	_dismissLocationTooltip() {
+		if (this._locationTooltip) {
+			this._locationTooltip.remove();
+			this._locationTooltip = null;
+		}
+		if (this._locationMarker) {
+			this._locationMarker.remove();
+			this._locationMarker = null;
+		}
+		document.removeEventListener('click', this._dismissTooltip, true);
+		document.removeEventListener('contextmenu', this._dismissTooltip, true);
+	}
+
+	/* -----------------------------------------
 	 * Cleanup
 	 * ---------------------------------------- */
 
 	destroy() {
+		this._dismissLocationTooltip();
 		// Remove panels
 		for (var panel of this._panels) {
 			if (panel.mapOverlay) panel.mapOverlay.destroy();
