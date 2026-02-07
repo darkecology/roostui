@@ -6,8 +6,8 @@ import { get_urls, expand_pattern } from '../js/utils.js';
 
 // --- Config ---
 
-var DATASET = 'us_sunrise_v3_2013-2023';
-//var DATASET = 'all_stations_v3';
+//var DATASET = 'us_sunrise_v3_2013-2023';
+var DATASET = 'all_stations_v3';
 var DATA_BASE = '../data/' + DATASET + '/';
 var datasetConfig = null;
 
