@@ -10,7 +10,7 @@ const PRODUCTION = process.env['BUILD'] === 'production';
 export default {
   input: join('js', 'vis.js'),
   output: {
-    file: join('dist', PRODUCTION ? 'demo.min.js' : 'demo.js'),
+    file: join('dist', PRODUCTION ? 'roostui.min.js' : 'roostui.js'),
     format: 'iife',
     sourcemap: true,
     strict: true,
