@@ -242,16 +242,16 @@ function loadGeoData() {
 		d3.json('../data/geo/states-10m.json'),
 		d3.json('../data/geo/counties-10m.json'),
 		d3.json('../data/geo/lakes.json'),
-		d3.json('../data/geo/neighbors.json'),
+		d3.json('../data/geo/neighbors-10m.json'),
 	]).then(function(results) {
 		stationCoords = results[0];
 		var statesTopo = results[1];
 		var countiesTopo = results[2];
 		var lakesGeo = results[3];
-		var neighborsGeo = results[4];
+		var neighborsTopo = results[4];
 		geoFeatures = {
 			nation: topojson.feature(statesTopo, statesTopo.objects.nation),
-			neighbors: neighborsGeo,
+			neighbors: topojson.feature(neighborsTopo, neighborsTopo.objects.countries),
 			states: topojson.mesh(statesTopo, statesTopo.objects.states, function(a, b) { return a !== b; }),
 			counties: topojson.mesh(countiesTopo, countiesTopo.objects.counties, function(a, b) { return a !== b; }),
 			lakes: lakesGeo,
