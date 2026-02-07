@@ -2,13 +2,14 @@ import * as d3 from 'd3';
 import * as topojson from 'topojson-client';
 import tippy from 'tippy.js';
 import { RoostViewer } from '../js/RoostViewer.js';
+import { get_urls, expand_pattern } from '../js/utils.js';
 
 // --- Config ---
 
-//var DATASET = 'us_sunrise_v3_2013-2023';
-var DATASET = 'all_stations_v3';
+var DATASET = 'us_sunrise_v3_2013-2023';
+//var DATASET = 'all_stations_v3';
 var DATA_BASE = '../data/' + DATASET + '/';
-var IMG_BASE = 'http://doppler.cs.umass.edu/roost/img/' + DATASET;
+var datasetConfig = null;
 
 // --- Parsed batch index ---
 
@@ -110,14 +111,8 @@ var pendingNav = null;  // {day, frame} to apply after batch loads
 // --- Helpers ---
 
 function imageUrls(filename) {
-	var station = filename.substring(0, 4);
-	var year = filename.substring(4, 8);
-	var month = filename.substring(8, 10);
-	var day = filename.substring(10, 12);
-	return {
-		dz: IMG_BASE + '/dz05/' + year + '/' + month + '/' + day + '/' + station + '/' + filename + '.png',
-		vr: IMG_BASE + '/vr05/' + year + '/' + month + '/' + day + '/' + station + '/' + filename + '.png',
-	};
+	var urls = get_urls(filename, DATASET, datasetConfig);
+	return { dz: urls[0], vr: urls[1] };
 }
 
 function formatDayLabel(yyyymmdd) {
@@ -309,8 +304,9 @@ function parseBatches(text) {
 
 function loadBatch(station, year) {
 	var batch = batchLookup[station][year];
-	var scansUrl = DATA_BASE + 'scans_' + batch + '.txt';
-	var tracksUrl = DATA_BASE + 'tracks_' + batch + '.txt';
+	var nav = { dataset: DATASET, batch: batch };
+	var scansUrl = '../' + expand_pattern(datasetConfig['scans'], nav);
+	var tracksUrl = '../' + expand_pattern(datasetConfig['boxes'], nav);
 
 	// Show loading state
 	daySel.disabled = true;
@@ -542,8 +538,9 @@ function stationLabel(code) {
 	return code + ' \u2014 ' + titleCase(info.name) + (info.st ? ', ' + info.st : '');
 }
 
-Promise.all([loadGeoData(), d3.text(DATA_BASE + 'batches.txt')]).then(function(results) {
+Promise.all([loadGeoData(), d3.text(DATA_BASE + 'batches.txt'), d3.json(DATA_BASE + 'config.json')]).then(function(results) {
 	var text = results[1];
+	datasetConfig = results[2];
 	parseBatches(text);
 	setOptions(stationSel, stations.map(function(s) {
 		return { value: s, label: stationLabel(s) };
