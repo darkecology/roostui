@@ -4,12 +4,14 @@
   "description": "Roost visualization and annotation web interface",
   "main": "js/vis.js",
   "scripts": {
-    "build": "npm-run-all -s build:rollup build:rollup:dist",
+    "build": "npm-run-all -s build:rollup build:rollup:dist build:viewer",
     "build:rollup": "rollup -c",
     "build:rollup:dist": "rollup -c --environment BUILD:production",
-    "watch": "npm-run-all -s build -p watch:rollup watch:rollup:dist",
+    "build:viewer": "rollup -c viewer/rollup.config.js",
+    "watch": "npm-run-all -s build -p watch:rollup watch:rollup:dist watch:viewer",
     "watch:rollup": "rollup -w -c",
     "watch:rollup:dist": "rollup -w -c --environment BUILD:production",
+    "watch:viewer": "rollup -w -c viewer/rollup.config.js",
     "serve": "http-server -p 8888 --cors",
     "watch-serve": "npm-run-all -p serve watch"
   },

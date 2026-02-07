@@ -5,7 +5,8 @@ import { RoostViewer } from '../js/RoostViewer.js';
 
 // --- Config ---
 
-var DATASET = 'us_sunrise_v3_2013-2023';
+//var DATASET = 'us_sunrise_v3_2013-2023';
+var DATASET = 'all_stations_v3';
 var DATA_BASE = '../data/' + DATASET + '/';
 var IMG_BASE = 'http://doppler.cs.umass.edu/roost/img/' + DATASET;
 
