@@ -3,6 +3,7 @@ import tippy from 'tippy.js';
 import { RoostViewer } from '../js/RoostViewer.js';
 import { get_urls, expand_pattern } from '../js/utils.js';
 import { titleCase, loadGeoData, buildMapConfig, buildStationInfo } from '../js/geo.js';
+import { formatTime, getSunrise } from '../js/time.js';
 
 // --- Config ---
 
@@ -69,12 +70,16 @@ var filterInputs = {
 var filteredOpacity = document.getElementById('filtered_opacity');
 var filteredOpacityLabel = document.getElementById('filtered_opacity_label');
 var showMap = document.getElementById('showMap');
+var showUTC = document.getElementById('showUTC');
 
 // --- Geo data state ---
 
 var stationCoords = null;
 var geoFeatures = null;
 var mapEnabled = true;
+var useUTC = false;
+var sunriseDate = null;
+var currentScansForDay = null;  // scans array for current day (for time formatting)
 
 // --- Track summaries (computed per batch) ---
 
@@ -130,6 +135,23 @@ function setOptions(sel, items) {
 		opt.textContent = items[i].label;
 		sel.appendChild(opt);
 	}
+}
+
+function updateViewerFrameInfo() {
+	if (!viewer || !currentScansForDay) return;
+	var i = viewer.getFrameIndex();
+	var scan = currentScansForDay[i];
+	var station = stationSel.value;
+	var info = stationCoords && stationCoords[station];
+	var stationTz = info ? info.tz : null;
+	var timeStr = '';
+	if (scan && stationTz) {
+		var ft = formatTime(scan, stationTz, sunriseDate, useUTC);
+		timeStr = ft.time + (ft.sunrise ? '  ' + ft.sunrise : '');
+	}
+	frameInfo.textContent =
+		'Frame ' + (i + 1) + ' / ' + viewer.getFrameCount() +
+		(timeStr ? '  (' + timeStr + ')' : '');
 }
 
 function destroyViewer() {
@@ -347,14 +369,26 @@ function onDayChange(targetFrame) {
 
 	var scans = currentScans.get(day) || [];
 	var boxes = currentBoxesByDay.get(day) || [];
+	currentScansForDay = scans;
+
+	// Compute sunrise for this day/station
+	sunriseDate = null;
+	var station = stationSel.value;
+	var info = stationCoords && stationCoords[station];
+	if (info && scans.length > 0) {
+		var fn = scans[0].filename;
+		var dayDate = new Date(Date.UTC(
+			parseInt(fn.substring(4, 8), 10),
+			parseInt(fn.substring(8, 10), 10) - 1,
+			parseInt(fn.substring(10, 12), 10),
+			12, 0, 0
+		));
+		sunriseDate = getSunrise(dayDate, info.lat, info.lon);
+	}
 
 	currentFrames = scans.map(function(scan) {
-		// Format time from local_time: "20200820_063020" -> "06:30:20"
-		var t = scan.local_time.substring(9);
-		var time = t.substring(0, 2) + ':' + t.substring(2, 4) + ':' + t.substring(4, 6);
 		return {
 			filename: scan.filename,
-			time: time,
 			imageUrls: imageUrls(scan.filename),
 		};
 	});
@@ -370,9 +404,16 @@ function onDayChange(targetFrame) {
 		stationInfo: buildStationInfo(getStationCode(), stationCoords),
 		filteredTrackIds: buildFilteredTrackIds(),
 		onFrameChange: function(i) {
+			var scan = currentScansForDay[i];
+			var stationTz = info ? info.tz : null;
+			var timeStr = '';
+			if (scan && stationTz) {
+				var ft = formatTime(scan, stationTz, sunriseDate, useUTC);
+				timeStr = ft.time + (ft.sunrise ? '  ' + ft.sunrise : '');
+			}
 			frameInfo.textContent =
 				'Frame ' + (i + 1) + ' / ' + viewer.getFrameCount() +
-				'  (' + currentFrames[i].time + ')';
+				(timeStr ? '  (' + timeStr + ')' : '');
 			updateHash();
 		},
 		onTrackHover: function(trackId, trackBoxes, rect) {
@@ -451,6 +492,12 @@ showMap.addEventListener('click', function() {
 	if (viewer) viewer.update({ mapVisible: mapEnabled });
 });
 
+showUTC.addEventListener('click', function() {
+	useUTC = !useUTC;
+	showUTC.classList.toggle('active', useUTC);
+	updateViewerFrameInfo();
+});
+
 filterToggle.addEventListener('click', function() {
 	filterPanel.classList.toggle('open');
 	filterToggle.innerHTML = filterPanel.classList.contains('open') ? '&#9652; Filters' : '&#9662; Filters';
@@ -482,6 +529,7 @@ document.addEventListener('keydown', function(e) {
 	if (e.key === 'ArrowUp') { e.preventDefault(); prevDay(); }
 	if (e.key === 'ArrowDown') { e.preventDefault(); nextDay(); }
 	if (e.key === 'm') { showMap.click(); }
+	if (e.key === 'u') { showUTC.click(); }
 });
 
 // --- Startup ---

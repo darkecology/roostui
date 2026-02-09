@@ -39,6 +39,7 @@
   "dependencies": {
     "d3": "^6.6.0",
     "sprintf": "^0.1.5",
+    "suncalc": "^1.9.0",
     "tippy.js": "^6.3.7",
     "topojson-client": "^3.1.0"
   },

@@ -1,6 +1,7 @@
 import * as d3 from 'd3';
-import { parse_day, parse_time, parse_scan,
+import { parse_day, parse_scan,
 		 get_urls, obj2url, url2obj } from './utils.js';
+import { formatTime, getSunrise } from './time.js';
 import { BoolList } from './BoolList.js';
 import { Box, Track, labels, defaultFilters,
 		 loadConfig, loadDataset, loadBatch,
@@ -45,6 +46,8 @@ var UI = (function() {
 	var stationCoords = null;	// { callsign: { lat, lon } }
 	var geoFeatures = null;		// { states, counties, lakes }
 	var mapEnabled = true;
+	var useUTC = false;
+	var sunriseDate = null;
 
 
 	/* -----------------------------------------
@@ -58,6 +61,13 @@ var UI = (function() {
 		if (viewer) viewer.update({ mapVisible: mapEnabled });
 	}
 
+	function toggleUTC() {
+		useUTC = !useUTC;
+		var el = document.getElementById("utcToggle");
+		if (el) el.checked = useUTC;
+		updateTimeLabels();
+	}
+
 	var keymap = {
 		'9':  next_box, // tab
 		'27': unselect_box, // esc
@@ -65,7 +75,8 @@ var UI = (function() {
 		'40': next_day, // down
 		'37': prev_frame,	// left
 		'39': next_frame,  // right
-		'77': toggleMap    // m
+		'77': toggleMap,   // m
+		'85': toggleUTC    // u
 	};
 
 	var shift_keymap = {
@@ -250,6 +261,12 @@ var UI = (function() {
 		return nav.batch ? nav.batch.substring(0, 4) : null;
 	}
 
+	function getStationTz() {
+		var code = getStationCode();
+		var info = stationCoords && stationCoords[code];
+		return info ? info.tz : null;
+	}
+
 	/* -----------------------------------------
 	 * UI
 	 * ---------------------------------------- */
@@ -270,6 +287,15 @@ var UI = (function() {
 			mapToggle.addEventListener("change", function() {
 				mapEnabled = mapToggle.checked;
 				if (viewer) viewer.update({ mapVisible: mapEnabled });
+			});
+		}
+
+		// UTC toggle
+		var utcToggle = document.getElementById("utcToggle");
+		if (utcToggle) {
+			utcToggle.addEventListener("change", function() {
+				useUTC = utcToggle.checked;
+				updateTimeLabels();
 			});
 		}
 
@@ -544,6 +570,21 @@ var UI = (function() {
 
 		frames = new BoolList(allframes, frames_with_roosts);
 
+		// Compute sunrise for this day/station
+		sunriseDate = null;
+		var code = getStationCode();
+		var info = stationCoords && stationCoords[code];
+		if (info && allframes.length > 0) {
+			var fn = allframes[0].filename;
+			var dayDate = new Date(Date.UTC(
+				parseInt(fn.substring(4, 8), 10),
+				parseInt(fn.substring(8, 10), 10) - 1,
+				parseInt(fn.substring(10, 12), 10),
+				12, 0, 0
+			));
+			sunriseDate = getSunrise(dayDate, info.lat, info.lon);
+		}
+
 		var timeSelect = d3.select("#timeSelect");
 
 		var options = timeSelect.selectAll("option")
@@ -553,7 +594,14 @@ var UI = (function() {
 			.append("option")
 			.merge(options)
 			.attr("value", (d,i) => i)
-			.text(d => parse_time(parse_scan(d.filename)['time']));
+			.text(function(d) {
+				var tz = getStationTz();
+				if (tz) {
+					var ft = formatTime(d, tz, sunriseDate, useUTC);
+					return ft.time + (ft.sunrise ? '  ' + ft.sunrise : '');
+				}
+				return d.filename.substring(13, 15) + ':' + d.filename.substring(15, 17) + ' UTC';
+			});
 
 		options.exit().remove();
 
@@ -603,6 +651,19 @@ var UI = (function() {
 		});
 
 		navigateToFrame();
+	}
+
+	function updateTimeLabels() {
+		if (!frames) return;
+		var tz = getStationTz();
+		d3.select("#timeSelect").selectAll("option")
+			.text(function(d) {
+				if (tz) {
+					var ft = formatTime(d, tz, sunriseDate, useUTC);
+					return ft.time + (ft.sunrise ? '  ' + ft.sunrise : '');
+				}
+				return d.filename.substring(13, 15) + ':' + d.filename.substring(15, 17) + ' UTC';
+			});
 	}
 
 	function save_day_notes() {
