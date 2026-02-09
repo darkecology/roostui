@@ -56,7 +56,8 @@ var showVR = document.getElementById('showVR');
 var currentImageKey = 'dz';
 var prevBtn = document.getElementById('prevBtn');
 var nextBtn = document.getElementById('nextBtn');
-var frameInfo = document.getElementById('frameInfo');
+var frameCount = document.getElementById('frameCount');
+var frameTime = document.getElementById('frameTime');
 var viewerEl = document.getElementById('viewer');
 var viewerWrap = document.getElementById('viewerWrap');
 var filterToggle = document.getElementById('filterToggle');
@@ -147,11 +148,10 @@ function updateViewerFrameInfo() {
 	var timeStr = '';
 	if (scan && stationTz) {
 		var ft = formatTime(scan, stationTz, sunriseDate, useUTC);
-		timeStr = ft.time + (ft.sunrise ? '  ' + ft.sunrise : '');
+		timeStr = ft.time + (ft.sunrise ? ', ' + ft.sunrise : '');
 	}
-	frameInfo.textContent =
-		'Frame ' + (i + 1) + ' / ' + viewer.getFrameCount() +
-		(timeStr ? '  (' + timeStr + ')' : '');
+	frameCount.textContent = 'Scan ' + (i + 1) + ' / ' + viewer.getFrameCount();
+	frameTime.textContent = timeStr;
 }
 
 function destroyViewer() {
@@ -161,7 +161,8 @@ function destroyViewer() {
 		viewer = null;
 		currentFrames = null;
 	}
-	frameInfo.textContent = 'Frame -- / --';
+	frameCount.textContent = 'Frame -- / --';
+	frameTime.textContent = '';
 }
 
 function buildTrackSummaries(boxes) {
@@ -386,10 +387,17 @@ function onDayChange(targetFrame) {
 		sunriseDate = getSunrise(dayDate, info.lat, info.lon);
 	}
 
+	var stationTzForFrames = info ? info.tz : null;
 	currentFrames = scans.map(function(scan) {
+		var sl = '';
+		if (stationTzForFrames && sunriseDate) {
+			var ft = formatTime(scan, stationTzForFrames, sunriseDate, useUTC);
+			sl = ft.sunriseFull;
+		}
 		return {
 			filename: scan.filename,
 			imageUrls: imageUrls(scan.filename),
+			sunriseLabel: sl,
 		};
 	});
 
@@ -409,11 +417,10 @@ function onDayChange(targetFrame) {
 			var timeStr = '';
 			if (scan && stationTz) {
 				var ft = formatTime(scan, stationTz, sunriseDate, useUTC);
-				timeStr = ft.time + (ft.sunrise ? '  ' + ft.sunrise : '');
+				timeStr = ft.time + (ft.sunrise ? ', ' + ft.sunrise : '');
 			}
-			frameInfo.textContent =
-				'Frame ' + (i + 1) + ' / ' + viewer.getFrameCount() +
-				(timeStr ? '  (' + timeStr + ')' : '');
+			frameCount.textContent = 'Scan ' + (i + 1) + ' / ' + viewer.getFrameCount();
+			frameTime.textContent = timeStr;
 			updateHash();
 		},
 		onTrackHover: function(trackId, trackBoxes, rect) {

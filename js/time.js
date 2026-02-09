@@ -67,6 +67,7 @@ export function formatTime(scan, stationTz, sunriseDate, useUTC) {
 
 	// Compute minutes from sunrise
 	var sunrise = '';
+	var sunriseFull = '';
 	if (sunriseDate) {
 		var scanUTC = new Date(Date.UTC(
 			parseInt(fn.substring(4, 8), 10),
@@ -77,12 +78,15 @@ export function formatTime(scan, stationTz, sunriseDate, useUTC) {
 			parseInt(utcS, 10)
 		));
 		var diffMin = Math.round((scanUTC - sunriseDate) / 60000);
+		var absMin = Math.abs(diffMin);
 		if (diffMin >= 0) {
-			sunrise = 'sr+' + diffMin;
+			sunrise = '+' + diffMin + 'm \u2600';
+			sunriseFull = '+' + diffMin + ' min from sunrise';
 		} else {
-			sunrise = 'sr' + diffMin;
+			sunrise = '\u2212' + absMin + 'm \u2600';
+			sunriseFull = '\u2212' + absMin + ' min from sunrise';
 		}
 	}
 
-	return { time: time, sunrise: sunrise };
+	return { time: time, sunrise: sunrise, sunriseFull: sunriseFull };
 }

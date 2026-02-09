@@ -236,9 +236,14 @@ var UI = (function() {
 	 * ---------------------------------------- */
 
 	function buildViewerFrames(scanList, datasetName, datasetConfig) {
+		var tz = getStationTz();
 		return scanList.map(function(scan) {
 			var urls = get_urls(scan.filename, datasetName, datasetConfig);
-			return { filename: scan.filename, imageUrls: { dz: urls[0], vr: urls[1] } };
+			var sl = '';
+			if (tz && sunriseDate) {
+				sl = formatTime(scan, tz, sunriseDate, useUTC).sunriseFull;
+			}
+			return { filename: scan.filename, imageUrls: { dz: urls[0], vr: urls[1] }, sunriseLabel: sl };
 		});
 	}
 

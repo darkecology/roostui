@@ -29,6 +29,11 @@ const VIEWER_CSS = `
 	background: rgba(0,0,0,0.55); color: rgba(255,255,255,0.85); font: 11px/1.3 sans-serif;
 	padding: 2px 6px; border-radius: 3px; cursor: default;
 }
+.roost-viewer .rv-sunrise-label {
+	position: absolute; z-index: 10; bottom: 4px; right: 4px;
+	background: rgba(0,0,0,0.55); color: rgba(255,255,255,0.85); font: 11px/1.3 sans-serif;
+	padding: 2px 6px; border-radius: 3px;
+}
 .roost-viewer .rv-location-marker::before,
 .roost-viewer .rv-location-marker::after {
 	content: ''; position: absolute; background: #f44;
@@ -268,6 +273,9 @@ export class RoostViewer {
 		this._stationLabel = null;
 		this._updateStationLabel();
 
+		// Sunrise label overlay (on last panel, bottom-right)
+		this._sunriseLabel = null;
+
 		// Set container dimensions to fit all panels
 		this._container.style.width = (keys.length * PANEL_SIZE) + 'px';
 		this._container.style.height = PANEL_SIZE + 'px';
@@ -337,6 +345,25 @@ export class RoostViewer {
 		}
 
 		this._renderBoxes();
+		this._updateSunriseLabel(frame.sunriseLabel || '');
+	}
+
+	_updateSunriseLabel(text) {
+		if (!text) {
+			if (this._sunriseLabel) {
+				this._sunriseLabel.remove();
+				this._sunriseLabel = null;
+			}
+			return;
+		}
+		if (!this._panels.length) return;
+		var lastPanel = this._panels[this._panels.length - 1];
+		if (!this._sunriseLabel) {
+			this._sunriseLabel = document.createElement('div');
+			this._sunriseLabel.className = 'rv-sunrise-label';
+			lastPanel.wrapper.appendChild(this._sunriseLabel);
+		}
+		this._sunriseLabel.textContent = text;
 	}
 
 	nextFrame() {

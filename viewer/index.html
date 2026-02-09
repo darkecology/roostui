@@ -9,7 +9,8 @@
     #stationSel { max-width: 160px; text-overflow: ellipsis; }
     #nav { margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
     #nav button { padding: 4px 12px; }
-    #frameInfo { display: inline-block; min-width: 180px; text-align: center; font-variant-numeric: tabular-nums; }
+    #frameInfo { display: inline-flex; flex-direction: column; align-items: center; min-width: 120px; font-variant-numeric: tabular-nums; }
+    #frameTime { font-size: 12px; color: #999; }
     #viewerRow { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
     #viewerWrap { position: relative; display: inline-block; border: 1px solid #555; --filtered-opacity: 0.35; }
     #viewerWrap .bbox.filtered { opacity: var(--filtered-opacity) !important; }
@@ -43,9 +44,9 @@
   </div>
   <div id="nav">
     <button id="prevBtn">&larr; Prev</button>
-    <span id="frameInfo">Frame -- / --</span>
+    <span id="frameInfo"><span id="frameCount">Scan -- / --</span><span id="frameTime"></span></span>
     <button id="nextBtn">Next &rarr;</button>
-    <span style="color:#888; margin-left:10px;">Arrow keys also work</span>
+    <span style="color:#888; margin-left:10px;">&#8593;&#8595; days &#8194;&#8592;&#8594; scans</span>
   </div>
   <div id="viewerRow">
     <div id="viewerWrap">
