@@ -98,10 +98,12 @@ export class RoostViewer {
 
 		this._frameIndex = 0;
 		this._mapVisible = options.mapVisible !== undefined ? options.mapVisible : true;
-		this._panels = [];      // [{ img, svg }]
+		this._panels = [];      // [{ img, svg, content }]
 		this._locationTooltip = null;
 		this._locationMarker = null;
 		this._dismissTooltip = this._dismissLocationTooltip.bind(this);
+		this._zoomTransform = d3.zoomIdentity;
+		this._zoomBehavior = null;
 
 		// Index data
 		this._indexData();
@@ -168,9 +170,30 @@ export class RoostViewer {
 			panel.wrapper.remove();
 		}
 		this._panels = [];
+		this._zoomTransform = d3.zoomIdentity;
 
 		var keys = this._options.imageKeys;
 		var mapConfig = this._options.mapConfig;
+		var self = this;
+
+		// Create zoom behavior (shared across panels)
+		this._zoomBehavior = d3.zoom()
+			.scaleExtent([1, 8])
+			.translateExtent([[0, 0], [PANEL_SIZE, PANEL_SIZE]])
+			.filter(function(event) {
+				// Allow wheel zoom everywhere
+				if (event.type === 'wheel') return true;
+				// Only allow left-button drag, and not on bbox elements
+				if (event.button) return false;
+				return !event.target.closest('.bbox');
+			})
+			.on('zoom', function(event) {
+				self._zoomTransform = event.transform;
+				var css = 'translate(' + event.transform.x + 'px,' + event.transform.y + 'px) scale(' + event.transform.k + ')';
+				for (var p of self._panels) {
+					p.content.style.transform = css;
+				}
+			});
 
 		for (var i = 0; i < keys.length; i++) {
 			var wrapper = document.createElement('div');
@@ -179,6 +202,13 @@ export class RoostViewer {
 			wrapper.style.top = '0px';
 			wrapper.style.width = PANEL_SIZE + 'px';
 			wrapper.style.height = PANEL_SIZE + 'px';
+			wrapper.style.overflow = 'hidden';
+
+			// Content div for pan/zoom transforms
+			var content = document.createElement('div');
+			content.style.transformOrigin = '0 0';
+			content.style.width = PANEL_SIZE + 'px';
+			content.style.height = PANEL_SIZE + 'px';
 
 			var img = document.createElement('img');
 			img.style.position = 'absolute';
@@ -187,7 +217,7 @@ export class RoostViewer {
 			img.style.width = PANEL_SIZE + 'px';
 			img.style.height = PANEL_SIZE + 'px';
 
-			wrapper.appendChild(img);
+			content.appendChild(img);
 
 			// Map overlay canvas (between img and svg)
 			var canvas = null;
@@ -201,7 +231,7 @@ export class RoostViewer {
 				canvas.style.top = '0px';
 				canvas.style.pointerEvents = 'none';
 				if (!this._mapVisible) canvas.style.display = 'none';
-				wrapper.appendChild(canvas);
+				content.appendChild(canvas);
 				mapOverlay = new MapOverlay(canvas, mapConfig);
 			}
 
@@ -212,13 +242,20 @@ export class RoostViewer {
 			svg.style.left = '0px';
 			svg.style.top = '0px';
 
-			wrapper.appendChild(svg);
+			content.appendChild(svg);
+			wrapper.appendChild(content);
 			this._container.appendChild(wrapper);
 
-			var panelObj = { wrapper: wrapper, img: img, canvas: canvas, mapOverlay: mapOverlay, svg: svg, key: keys[i] };
+			// Attach zoom behavior to wrapper
+			d3.select(wrapper).call(this._zoomBehavior)
+				.on('dblclick.zoom', function() {
+					// Double-click resets zoom
+					self.resetZoom();
+				});
+
+			var panelObj = { wrapper: wrapper, content: content, img: img, canvas: canvas, mapOverlay: mapOverlay, svg: svg, key: keys[i] };
 			this._panels.push(panelObj);
 
-			var self = this;
 			(function(p) {
 				wrapper.addEventListener('contextmenu', function(e) {
 					self._showLocationTooltip(e, p);
@@ -319,6 +356,13 @@ export class RoostViewer {
 
 	getFrameCount() {
 		return this._options.frames.length;
+	}
+
+	resetZoom() {
+		this._zoomTransform = d3.zoomIdentity;
+		for (var panel of this._panels) {
+			d3.select(panel.wrapper).call(this._zoomBehavior.transform, d3.zoomIdentity);
+		}
 	}
 
 	/* -----------------------------------------
@@ -486,8 +530,13 @@ export class RoostViewer {
 		this._dismissLocationTooltip();
 
 		var rect = panel.wrapper.getBoundingClientRect();
-		var px = e.clientX - rect.left;
-		var py = e.clientY - rect.top;
+		var screenX = e.clientX - rect.left;
+		var screenY = e.clientY - rect.top;
+
+		// Invert zoom transform to get image-space coordinates
+		var imgCoords = this._zoomTransform.invert([screenX, screenY]);
+		var px = imgCoords[0];
+		var py = imgCoords[1];
 
 		// Pixel-to-km: 600px = 300km diameter, so 1px = 0.5km
 		var xKm = (px - 300) * 0.5;
@@ -508,21 +557,21 @@ export class RoostViewer {
 			lines.push('<a href="' + mapsUrl + '" target="_blank" rel="noopener">Google Maps</a>');
 		}
 
-		// Crosshair marker at click point
+		// Crosshair marker at click point (screen coords)
 		var panelLeft = parseInt(panel.wrapper.style.left, 10) || 0;
 		var marker = document.createElement('div');
 		marker.className = 'rv-location-marker';
-		marker.style.left = (panelLeft + px) + 'px';
-		marker.style.top = py + 'px';
+		marker.style.left = (panelLeft + screenX) + 'px';
+		marker.style.top = screenY + 'px';
 		this._container.appendChild(marker);
 		this._locationMarker = marker;
 
-		// Tooltip
+		// Tooltip (screen coords)
 		var tooltip = document.createElement('div');
 		tooltip.className = 'rv-location-tooltip';
 		tooltip.innerHTML = lines.join('<br>');
-		tooltip.style.left = (panelLeft + px + 12) + 'px';
-		tooltip.style.top = (py + 12) + 'px';
+		tooltip.style.left = (panelLeft + screenX + 12) + 'px';
+		tooltip.style.top = (screenY + 12) + 'px';
 
 		this._container.appendChild(tooltip);
 		this._locationTooltip = tooltip;
