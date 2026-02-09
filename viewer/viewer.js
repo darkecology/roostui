@@ -1,8 +1,8 @@
 import * as d3 from 'd3';
-import * as topojson from 'topojson-client';
 import tippy from 'tippy.js';
 import { RoostViewer } from '../js/RoostViewer.js';
 import { get_urls, expand_pattern } from '../js/utils.js';
+import { titleCase, loadGeoData, buildMapConfig, buildStationInfo } from '../js/geo.js';
 
 // --- Config ---
 
@@ -217,50 +217,8 @@ function buildTooltipContent(trackId, box, trackBoxes) {
 
 // --- Map overlay ---
 
-function buildMapConfig() {
-	if (!geoFeatures || !stationCoords) return null;
-	var code = stationSel.value;
-	if (!code || !stationCoords[code]) return null;
-	var coords = stationCoords[code];
-	return {
-		lat: coords.lat,
-		lon: coords.lon,
-		features: geoFeatures,
-	};
-}
-
-function buildStationInfo() {
-	var code = stationSel.value;
-	if (!code || !stationCoords || !stationCoords[code]) return null;
-	var info = stationCoords[code];
-	return { code: code, name: info.name, st: info.st, county: info.county, country: info.country, elev: info.elev, lat: info.lat, lon: info.lon, tz: info.tz };
-}
-
-function loadGeoData() {
-	return Promise.all([
-		d3.json('../data/stations.json'),
-		d3.json('../data/geo/states-10m.json'),
-		d3.json('../data/geo/counties-10m.json'),
-		d3.json('../data/geo/lakes.json'),
-		d3.json('../data/geo/neighbors-10m.json'),
-	]).then(function(results) {
-		stationCoords = results[0];
-		var statesTopo = results[1];
-		var countiesTopo = results[2];
-		var lakesGeo = results[3];
-		var neighborsTopo = results[4];
-		geoFeatures = {
-			nation: topojson.feature(statesTopo, statesTopo.objects.nation),
-			neighbors: topojson.feature(neighborsTopo, neighborsTopo.objects.countries),
-			states: topojson.mesh(statesTopo, statesTopo.objects.states, function(a, b) { return a !== b; }),
-			counties: topojson.mesh(countiesTopo, countiesTopo.objects.counties, function(a, b) { return a !== b; }),
-			lakes: lakesGeo,
-		};
-		// If the viewer was created before geo data loaded, push the map config now
-		if (viewer) viewer.update({ mapConfig: buildMapConfig() });
-	}).catch(function(err) {
-		console.warn('Failed to load geo data (map overlay disabled):', err);
-	});
+function getStationCode() {
+	return stationSel.value;
 }
 
 // --- Day navigation ---
@@ -407,9 +365,9 @@ function onDayChange(targetFrame) {
 		frames: currentFrames,
 		boxes: boxes,
 		imageKeys: [imageKey],
-		mapConfig: buildMapConfig(),
+		mapConfig: buildMapConfig(getStationCode(), stationCoords, geoFeatures),
 		mapVisible: mapEnabled,
-		stationInfo: buildStationInfo(),
+		stationInfo: buildStationInfo(getStationCode(), stationCoords),
 		filteredTrackIds: buildFilteredTrackIds(),
 		onFrameChange: function(i) {
 			frameInfo.textContent =
@@ -528,18 +486,23 @@ document.addEventListener('keydown', function(e) {
 
 // --- Startup ---
 
-function titleCase(s) {
-	return s.toLowerCase().replace(/\b\w/g, function(c) { return c.toUpperCase(); })
-		.replace(/\bAfb\b/g, 'AFB');
-}
-
 function stationLabel(code) {
 	var info = stationCoords && stationCoords[code];
 	if (!info || !info.name) return code;
 	return code + ' \u2014 ' + titleCase(info.name) + (info.st ? ', ' + info.st : '');
 }
 
-Promise.all([loadGeoData(), d3.text(DATA_BASE + 'batches.txt'), d3.json(DATA_BASE + 'config.json')]).then(function(results) {
+Promise.all([
+	loadGeoData('../data/').then(function(result) {
+		stationCoords = result.stationCoords;
+		geoFeatures = result.geoFeatures;
+		if (viewer) viewer.update({ mapConfig: buildMapConfig(getStationCode(), stationCoords, geoFeatures) });
+	}).catch(function(err) {
+		console.warn('Failed to load geo data (map overlay disabled):', err);
+	}),
+	d3.text(DATA_BASE + 'batches.txt'),
+	d3.json(DATA_BASE + 'config.json'),
+]).then(function(results) {
 	var text = results[1];
 	datasetConfig = results[2];
 	parseBatches(text);
