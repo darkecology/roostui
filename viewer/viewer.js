@@ -218,7 +218,7 @@ function buildTooltipContent(trackId, box, trackBoxes) {
 // --- Map overlay ---
 
 function buildMapConfig() {
-	if (!mapEnabled || !geoFeatures || !stationCoords) return null;
+	if (!geoFeatures || !stationCoords) return null;
 	var code = stationSel.value;
 	if (!code || !stationCoords[code]) return null;
 	var coords = stationCoords[code];
@@ -408,6 +408,7 @@ function onDayChange(targetFrame) {
 		boxes: boxes,
 		imageKeys: [imageKey],
 		mapConfig: buildMapConfig(),
+		mapVisible: mapEnabled,
 		stationInfo: buildStationInfo(),
 		filteredTrackIds: buildFilteredTrackIds(),
 		onFrameChange: function(i) {
@@ -489,7 +490,7 @@ showVR.addEventListener('click', function() { setImageKey('vr'); });
 showMap.addEventListener('click', function() {
 	mapEnabled = !mapEnabled;
 	showMap.classList.toggle('active', mapEnabled);
-	if (viewer) viewer.update({ mapConfig: buildMapConfig() });
+	if (viewer) viewer.update({ mapVisible: mapEnabled });
 });
 
 filterToggle.addEventListener('click', function() {

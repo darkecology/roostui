@@ -97,6 +97,7 @@ export class RoostViewer {
 		}, options);
 
 		this._frameIndex = 0;
+		this._mapVisible = options.mapVisible !== undefined ? options.mapVisible : true;
 		this._panels = [];      // [{ img, svg }]
 		this._locationTooltip = null;
 		this._locationMarker = null;
@@ -199,6 +200,7 @@ export class RoostViewer {
 				canvas.style.left = '0px';
 				canvas.style.top = '0px';
 				canvas.style.pointerEvents = 'none';
+				if (!this._mapVisible) canvas.style.display = 'none';
 				wrapper.appendChild(canvas);
 				mapOverlay = new MapOverlay(canvas, mapConfig);
 			}
@@ -440,6 +442,12 @@ export class RoostViewer {
 			rebuildPanels = true;
 		}
 
+		// Track mapVisible separately from options
+		if (options.mapVisible !== undefined) {
+			this._mapVisible = options.mapVisible;
+			delete options.mapVisible;
+		}
+
 		// Merge options
 		Object.assign(this._options, options);
 
@@ -453,6 +461,12 @@ export class RoostViewer {
 					if (panel.mapOverlay) {
 						panel.mapOverlay.update(this._options.mapConfig);
 					}
+				}
+			}
+			// Update canvas visibility
+			for (var panel of this._panels) {
+				if (panel.canvas) {
+					panel.canvas.style.display = this._mapVisible ? '' : 'none';
 				}
 			}
 			// Update station label if stationInfo changed

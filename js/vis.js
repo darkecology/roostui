@@ -55,7 +55,7 @@ var UI = (function() {
 		mapEnabled = !mapEnabled;
 		var el = document.getElementById("mapToggle");
 		if (el) el.checked = mapEnabled;
-		if (viewer) viewer.update({ mapConfig: buildMapConfig() });
+		if (viewer) viewer.update({ mapVisible: mapEnabled });
 	}
 
 	var keymap = {
@@ -252,7 +252,7 @@ var UI = (function() {
 	}
 
 	function buildMapConfig() {
-		if (!mapEnabled || !geoFeatures || !stationCoords) return null;
+		if (!geoFeatures || !stationCoords) return null;
 		var code = nav.batch ? nav.batch.substring(0, 4) : null;
 		if (!code || !stationCoords[code]) return null;
 		var coords = stationCoords[code];
@@ -316,7 +316,7 @@ var UI = (function() {
 		if (mapToggle) {
 			mapToggle.addEventListener("change", function() {
 				mapEnabled = mapToggle.checked;
-				if (viewer) viewer.update({ mapConfig: buildMapConfig() });
+				if (viewer) viewer.update({ mapVisible: mapEnabled });
 			});
 		}
 
@@ -626,6 +626,7 @@ var UI = (function() {
 			boxes: dayBoxes,
 			imageKeys: ['dz', 'vr'],
 			mapConfig: buildMapConfig(),
+			mapVisible: mapEnabled,
 			stationInfo: buildStationInfo(),
 			filteredTrackIds: buildFilteredTrackIds(),
 			onTrackHover: function(trackId, trackBoxes, rect) {
