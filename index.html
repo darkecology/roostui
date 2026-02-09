@@ -1,34 +1,110 @@
 <html>
   <head>
     <title>Roost Detection Visualization</title>
-
-    
-    
   </head>
-  
-  <style>
 
-    html {
+  <style>
+    body {
         font-family: sans-serif;
+        margin: 10px 10px 10px 20px;
+        background: #f5f5f5;
+        color: #222;
     }
-    
-    #instructions, #controls, #filtering, #plot, #info {
-        padding: 5px;
-        display:inline-block;
-        vertical-align: middle;
+
+    #toolbar {
+        display: flex;
+        align-items: flex-start;
+        gap: 20px;
+        flex-wrap: wrap;
+        margin-bottom: 8px;
+    }
+
+    #instructions {
+        width: 280px;
+        color: #666;
+        font-size: 15px;
+    }
+
+    #instructions ul {
+        margin-top: 5px;
+        padding-left: 15px;
+    }
+
+    #export {
+        padding: 4px 12px;
+        border: 1px solid #999;
+        background: #e0e0e0;
+        color: #333;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 13px;
+    }
+
+    #export:hover {
+        background: #ccc;
+        color: #111;
+    }
+
+    #instructions strong {
+        color: #c33;
+    }
+
+    #controls {
+        font-size: 15px;
+    }
+
+    #controls label {
+        color: #555;
+    }
+
+    #controls .control-row {
+        margin-bottom: 4px;
+    }
+
+    #controls select, #controls input[type="text"] {
+        padding: 3px 6px;
+    }
+
+    #controls input[type="checkbox"] {
+        margin: 0 2px;
+    }
+
+    #filtering {
+        font-size: 15px;
+    }
+
+    #filtering strong {
+        color: #333;
+    }
+
+    #filtering ul {
+        margin-top: 5px;
+        padding-left: 15px;
+    }
+
+    #filtering label {
+        color: #555;
+    }
+
+    #filtering input[type="number"] {
+        width: 64px;
+        padding: 2px 4px;
+        font-size: 14px;
+    }
+
+    #plot {
+        width: 400px;
     }
 
     div.tooltip {
         position: absolute;
         display: inline-block;
-        //text-align: center;
-        //width: 200px;
-        //height: 120px;
-        padding: 2px;	
-        font: 12px sans-serif;	
-        background: white;
-        border: 0px;					
-        border-radius: 8px;
+        padding: 6px 10px;
+        font: 12px sans-serif;
+        background: rgba(255,255,255,0.95);
+        color: #222;
+        border: 1px solid #bbb;
+        border-radius: 6px;
         z-index: 100;
     }
 
@@ -36,36 +112,13 @@
         content: " ";
         position: absolute;
         top: 50%;
-        right: 100%; /* To the left of the tooltip */
+        right: 100%;
         margin-top: -10px;
         border-width: 10px;
         border-style: solid;
-        border-color: transparent white transparent transparent;
+        border-color: transparent rgba(255,255,255,0.95) transparent transparent;
     }
 
-    
-  /* #controls { */
-    /*     width: 300px; */
-    /* } */
-
-    /* #filtering { */
-    /*     // width: 500px; */
-    /* } */
-
-    ul {
-        margin-top: 5px;
-        padding-left: 15px;
-    }
-
-    #instructions {
-        width: 260px;
-    }
-    
-    #plot {
-        width:400px;
-        height:100px;
-    }
-        
     #comment_div {
         width: 340px;
     }
@@ -76,61 +129,79 @@
 
     #viewer {
         position: relative;
-        align: center;
+        display: inline-block;
+        border: 1px solid #bbb;
     }
 
-    input[type="radio"]{
+    input[type="radio"] {
         margin: 0 2px 0 2px;
     }
 
     #mapper {
         margin: 0 0 0 10px;
     }
+
+    #notes {
+        background: #fff;
+        color: #222;
+        border: 1px solid #bbb;
+        padding: 2px 4px;
+    }
   </style>
-  
+
   <body>
 
-    <div id="instructions">
-      <ul>
-        <li>up/down for days</li>
-        <li>left/right for frames</li>
-        <li>hover on box or use tab/shift-tab to select for labeling</li>
-      </ul>
-      <input id="export" type="button" value="Export"></input><strong>(REQUIRED TO SAVE)</strong>
-    </div>
-    <div id="controls">
-      <label for="datasets">Dataset:</label>
-      <select id="datasets">
-        <option disabled selected>Select dataset</option>
-      </select> <br/>
-      <label for="batches">Batch:</label>
-      <select id="batches"></select> <br/>
-      <label for="dateSelect">Date:</label>
-      <select id="dateSelect"></select> <br/>
-      <label for="timeSelect">Time:</label>
-      <select id="timeSelect"> </select> <br/>
-      <label for="dayNotes">Notes for day:</label>
-      <input id="dayNotes"> </input> <br/>
-      <label for="mapToggle">Map overlay:</label>
-      <input type="checkbox" id="mapToggle" checked>
-      <label for="utcToggle" style="margin-left: 10px;">UTC:</label>
-      <input type="checkbox" id="utcToggle"> <br/>
-
-    </div>
-    
-		 
-    </div>
-    <div id="filtering">
-      <strong>Track filtering</strong>:<br/>
-      <ul>
-        <li>At least <input type="number" min="1" max="10" step="1" id="detections_min" value="2"/> detections</li>
-        <li>At least <input type="number" min="1" max="10" step="1" id="high_quality_detections_min" value="2"/> detections with
-          score at least <input type="number" min="-1" max="1" step="0.05" value="0.05" id="score_min"/></li>
-        <li>Average score at least <input type="number" min="-1" max="1" step="0.05" value="-1" id="avg_score_min"/></li>
-      </ul>
+    <div id="toolbar">
+      <div id="instructions">
+        <ul>
+          <li>up/down for days</li>
+          <li>left/right for frames</li>
+          <li>hover on box or use tab/shift-tab to select for labeling</li>
+        </ul>
+        <input id="export" type="button" value="Export"></input> <strong>(REQUIRED TO SAVE)</strong>
+      </div>
+      <div id="controls">
+        <div class="control-row">
+          <label for="datasets">Dataset:</label>
+          <select id="datasets">
+            <option disabled selected>Select dataset</option>
+          </select>
+        </div>
+        <div class="control-row">
+          <label for="batches">Batch:</label>
+          <select id="batches"></select>
+        </div>
+        <div class="control-row">
+          <label for="dateSelect">Date:</label>
+          <select id="dateSelect"></select>
+        </div>
+        <div class="control-row">
+          <label for="timeSelect">Time:</label>
+          <select id="timeSelect"> </select>
+        </div>
+        <div class="control-row">
+          <label for="dayNotes">Notes for day:</label>
+          <input id="dayNotes"></input>
+        </div>
+        <div class="control-row">
+          <label for="mapToggle">Map overlay:</label>
+          <input type="checkbox" id="mapToggle" checked>
+          <label for="utcToggle" style="margin-left: 10px;">UTC:</label>
+          <input type="checkbox" id="utcToggle">
+        </div>
+      </div>
+      <div id="filtering">
+        <strong>Track filtering</strong>:
+        <ul>
+          <li>At least <input type="number" min="1" max="10" step="1" id="detections_min" value="2"/> detections</li>
+          <li>At least <input type="number" min="1" max="10" step="1" id="high_quality_detections_min" value="2"/> detections with
+            score at least <input type="number" min="-1" max="1" step="0.05" value="0.05" id="score_min"/></li>
+          <li>Average score at least <input type="number" min="-1" max="1" step="0.05" value="-1" id="avg_score_min"/></li>
+        </ul>
+      </div>
     </div>
     <div id="plot">
-    </div>    
+    </div>
     <div id="labeltip" class="tooltip" style="visibility: hidden;">
       <div id="labels">
       </div>
@@ -139,7 +210,6 @@
       <br>
       <span id="mapper"></span>
     </div>
-    <!-- </div> -->
     <div id="viewer">
     </div>
 </body>

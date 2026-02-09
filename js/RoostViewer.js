@@ -39,6 +39,7 @@ const VIEWER_CSS = `
 .roost-viewer .rv-location-marker::after {
 	width: 100%; height: 2px; top: 5px; left: 0;
 }
+.roost-viewer > div + div { border-left: 1px solid #555; }
 `;
 
 function injectStyle() {
