@@ -60,8 +60,8 @@ var frameCount = document.getElementById('frameCount');
 var frameTime = document.getElementById('frameTime');
 var viewerEl = document.getElementById('viewer');
 var viewerWrap = document.getElementById('viewerWrap');
-var filterToggle = document.getElementById('filterToggle');
-var filterPanel = document.getElementById('filterPanel');
+var optionsToggle = document.getElementById('optionsToggle');
+var optionsPanel = document.getElementById('optionsPanel');
 var filterInputs = {
 	detections_min: document.getElementById('detections_min'),
 	high_quality_detections_min: document.getElementById('high_quality_detections_min'),
@@ -71,7 +71,7 @@ var filterInputs = {
 var filteredOpacity = document.getElementById('filtered_opacity');
 var filteredOpacityLabel = document.getElementById('filtered_opacity_label');
 var showMap = document.getElementById('showMap');
-var showUTC = document.getElementById('showUTC');
+var utcToggle = document.getElementById('utcToggle');
 
 // --- Geo data state ---
 
@@ -499,15 +499,14 @@ showMap.addEventListener('click', function() {
 	if (viewer) viewer.update({ mapVisible: mapEnabled });
 });
 
-showUTC.addEventListener('click', function() {
-	useUTC = !useUTC;
-	showUTC.classList.toggle('active', useUTC);
+utcToggle.addEventListener('change', function() {
+	useUTC = utcToggle.checked;
 	updateViewerFrameInfo();
 });
 
-filterToggle.addEventListener('click', function() {
-	filterPanel.classList.toggle('open');
-	filterToggle.innerHTML = filterPanel.classList.contains('open') ? '&#9652; Filters' : '&#9662; Filters';
+optionsToggle.addEventListener('click', function() {
+	optionsPanel.classList.toggle('open');
+	optionsToggle.innerHTML = optionsPanel.classList.contains('open') ? '&#9652; Options' : '&#9662; Options';
 });
 
 for (var key in filterInputs) {
@@ -536,7 +535,7 @@ document.addEventListener('keydown', function(e) {
 	if (e.key === 'ArrowUp') { e.preventDefault(); prevDay(); }
 	if (e.key === 'ArrowDown') { e.preventDefault(); nextDay(); }
 	if (e.key === 'm') { showMap.click(); }
-	if (e.key === 'u') { showUTC.click(); }
+	if (e.key === 'u') { utcToggle.checked = !utcToggle.checked; utcToggle.dispatchEvent(new Event('change')); }
 });
 
 // --- Startup ---

@@ -185,7 +185,7 @@ export class RoostViewer {
 		// Create zoom behavior (shared across panels)
 		this._zoomBehavior = d3.zoom()
 			.scaleExtent([1, 8])
-			.translateExtent([[0, 0], [PANEL_SIZE, PANEL_SIZE]])
+			.translateExtent([[-PANEL_SIZE * 0.5, -PANEL_SIZE * 0.5], [PANEL_SIZE * 1.5, PANEL_SIZE * 1.5]])
 			.filter(function(event) {
 				// Allow wheel zoom everywhere
 				if (event.type === 'wheel') return true;
